@@ -1,6 +1,0 @@
-packages:
-  - 'packages/*'
-  - 'packages/engines/*'
-  - 'packages/integrations/*'
-  - 'benchmarks'
-  - 'examples/*'
