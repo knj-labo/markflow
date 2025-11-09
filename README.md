@@ -4,22 +4,22 @@ A hybrid MDX compiler that combines Rust's compilation speed with JavaScript's p
 
 ## 🎉 Status
 
-**v0.0.1** - Fully functional with Rust engine delivering impressive performance gains!
+v0.0.1 - Fully functional with Rust engine delivering impressive performance gains!
 
 ## Features
 
-- 🚀 **Blazing Fast**: 5-20x faster compilation with Rust engine (benchmarked)
-- 🔧 **Full Compatibility**: Falls back to JS engine for plugin support
-- 🎯 **Smart Selection**: Automatically chooses the best engine
-- 📦 **Drop-in Replacement**: Works with existing MDX setups
-- 🔌 **Framework Integrations**: Vite, Astro, and more
+- 🚀 Blazing Fast: 5-20x faster compilation with Rust engine (benchmarked)
+- 🔧 Full Compatibility: Falls back to JS engine for plugin support
+- 🎯 Smart Selection: Automatically chooses the best engine
+- 📦 Drop-in Replacement: Works with existing MDX setups
+- 🔌 Framework Integrations: Vite, Astro, and more
 
 ## Performance
 
 Real-world benchmark results:
-- **Small files (< 1KB)**: ~20x faster with Rust
-- **Medium files (2-3KB)**: ~7x faster with Rust
-- **Large files (> 10KB)**: ~5x faster with Rust
+- Small files (< 1KB): ~20x faster with Rust
+- Medium files (2-3KB): ~7x faster with Rust
+- Large files (> 10KB): ~5x faster with Rust
 
 ## Installation
 
@@ -85,19 +85,19 @@ export default {
 
 The compiler automatically selects the appropriate engine:
 
-1. **Explicit**: Use the engine specified in options (`engine: 'rust'` or `engine: 'js'`)
-2. **Plugins**: Automatically use JS engine if remark/rehype plugins are present
-3. **Performance**: Use Rust engine by default for maximum speed
-4. **Fallback**: Gracefully fall back to available engine if one fails
+1. Explicit: Use the engine specified in options (`engine: 'rust'` or `engine: 'js'`)
+2. Plugins: Automatically use JS engine if remark/rehype plugins are present
+3. Performance: Use Rust engine by default for maximum speed
+4. Fallback: Gracefully fall back to available engine if one fails
 
 ### When Each Engine is Used
 
-- **Rust Engine** ⚡️
+- Rust Engine ⚡️
   - No plugins required
   - Maximum compilation speed needed
   - Production builds without customization
 
-- **JS Engine** 🔌
+- JS Engine 🔌
   - Remark/Rehype plugins needed
   - Custom transformations required
   - Development with hot reload (still fast!)
