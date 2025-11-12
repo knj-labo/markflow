@@ -4,14 +4,12 @@
 //!
 //! ## 現在の状態 (PR0完了 → PR1準備中)
 //!
-//! - ✅ HTML 出力は `pulldown-cmark` に完全委譲しており、CommonMark + GFM の正確なレンダリングを最優先します。
-//! - ✅ 見出し収集は `pulldown_cmark::Event` ベースの実装で CommonMark 準拠の正確な検出を実現します。
-//! - ✅ **PR0完了**: H1見出しのみを対象とし、ASCII専用スラグ生成（衝突処理付き）を実装。
+//! - HTML 出力は `pulldown-cmark` に完全委譲しており、CommonMark + GFM の正確なレンダリングを最優先します。
+//! - 見出し収集は `pulldown_cmark::Event` ベースの実装で CommonMark 準拠の正確な検出を実現します。
+//! - H1見出しのみを対象とし、ASCII専用スラグ生成（衝突処理付き）を実装。
 //! - 📦 API は `render()` と `RenderResult { html, headings }` を安定させ、将来の機能拡張にも対応します。
 //!
 //! ## 次のステップ
-//!
-//! - ✅ **PR0完了**: ASCII スラグの衝突処理実装と API ドキュメント整備。
 //! - 🔄 **PR1準備中**: Unicode/CJK スラグ化とドキュメント整備。
 //! - ⏳ **PR2予定**: HTML 生成と見出し収集のシングルパス統合（TODO.md 参照）。
 //!
@@ -67,7 +65,6 @@ fn default_true() -> bool {
     true
 }
 
-/// レンダリング結果（ABI固定）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RenderResult {
     pub html: String,
@@ -84,8 +81,6 @@ pub struct Heading {
 
 /// Markdownをレンダリング（pulldown-cmark + イベントベース見出し収集）
 ///
-/// **PR0完了**: 以下の 2 ステップで処理します：
-///
 /// 1. `pulldown-cmark` で CommonMark + GFM HTML を生成します。
 /// 2. 同じMarkdown文字列を `pulldown_cmark::Event` で再度パースし、H1見出しのみを正確に収集します。
 /// 3. **ASCII専用スラグ生成**: 各H1見出しに衝突処理付きのASCIIスラグを添付します。
@@ -100,25 +95,12 @@ pub struct Heading {
 ///
 /// ## 使用例
 ///
-/// ```rust
-/// use rsmd_core::{render, Options};
-///
-/// let markdown = "# A\n\nParagraph with **bold** and [link](https://example.com).";
-/// let result = render(markdown, &Options::default());
-/// assert!(result.html.contains("<h1>A</h1>"));
-/// assert!(result
-///     .html
-///     .contains("<p>Paragraph with <strong>bold</strong> and <a href=\"https://example.com\">link</a>.</p>"));
-/// assert_eq!(result.headings.len(), 1);
-/// assert_eq!(result.headings[0].text, "A");
-/// ```
-///
 /// `RenderResult` は HTML と見出しリスト（depth / text / slug）を返し、
 /// 将来のPRで heading の正確性を高めても API 互換性を保てるようにしています。
 ///
 /// ## 現在の実装状況と今後の改善
-/// - ✅ **見出し収集**: H1見出しのみを対象とし、ASCII専用スラグ生成（衝突処理付き）を実装完了。
-/// - ⏳ **2パス処理**: HTML生成と見出し収集が独立（PR2でシングルパス統合予定）
+/// - ✅ 見出し収集: H1見出しのみを対象とし、ASCII専用スラグ生成（衝突処理付き）を実装完了。
+/// - ⏳ 2パス処理: HTML生成と見出し収集が独立（PR2でシングルパス統合予定）
 /// - pulldown-cmark の生HTMLが必要な場合は `sanitize_html` を組み合わせて利用してください。
 pub fn render(source: &str, options: &Options) -> RenderResult {
     // pulldown-cmarkオプションに変換
@@ -131,7 +113,7 @@ pub fn render(source: &str, options: &Options) -> RenderResult {
     let mut html = String::new();
     html::push_html(&mut html, parser);
 
-    // 見出し抽出のためにイベントベースで再度パースする（PR0実装済み：ASCII専用スラグ生成）
+    // 見出し抽出のためにイベントベースで再度パースする
     let headings = extract_headings(source, &cmark_options);
 
     RenderResult { html, headings }
@@ -189,13 +171,12 @@ fn convert_options(options: &Options) -> CmarkOptions {
 ///
 /// ## CommonMark準拠の改善点
 /// - コードブロック内の `# Heading` は見出しとして扱いません
-/// - ATX見出しの `#word` (スペースなし) は無効として扱います  
+/// - ATX見出しの `#word` (スペースなし) は無効として扱います
 /// - `#######` (7個以上の#) は見出しとして認識されません
 /// - インラインフォーマット (`# **Bold** Title`) を正しく処理します
 ///
 /// ## 処理スコープ (PR0実装完了)
 /// - H1見出し (depth=1) のみを収集対象とします
-/// - ✅ ASCII専用スラグ生成（衝突処理付き）を実装済み
 /// - setext見出し (`Title\n====`) は将来対応予定として現在は対象外です
 ///
 /// ## イベント処理アルゴリズム
@@ -207,11 +188,11 @@ fn extract_headings(source: &str, options: &CmarkOptions) -> Vec<Heading> {
     let mut headings = Vec::new();
     let mut used_slugs = HashSet::new();
     let parser = Parser::new_ext(source, *options);
-    
+
     let mut current_heading_text = String::new();
     let mut in_h1_heading = false;
     let mut in_code_block = false;
-    
+
     for event in parser {
         match event {
             // コードブロックの開始・終了を追跡
@@ -221,13 +202,15 @@ fn extract_headings(source: &str, options: &CmarkOptions) -> Vec<Heading> {
             Event::End(Tag::CodeBlock(_)) => {
                 in_code_block = false;
             }
-            
+
             // H1見出しの開始を検出
-            Event::Start(Tag::Heading(level, _, _)) if level == HeadingLevel::H1 && !in_code_block => {
+            Event::Start(Tag::Heading(level, _, _))
+                if level == HeadingLevel::H1 && !in_code_block =>
+            {
                 in_h1_heading = true;
                 current_heading_text.clear();
             }
-            
+
             // H1見出しの終了を検出
             Event::End(Tag::Heading(level, _, _)) if level == HeadingLevel::H1 && in_h1_heading => {
                 in_h1_heading = false;
@@ -235,47 +218,44 @@ fn extract_headings(source: &str, options: &CmarkOptions) -> Vec<Heading> {
                 if !text.is_empty() {
                     // PR0実装：ASCII専用スラッグ生成（衝突処理付き）
                     let slug = crate::slugify::slugify_ascii(&text, &mut used_slugs);
-                    headings.push(Heading { 
-                        depth: 1, 
-                        text, 
-                        slug 
+                    headings.push(Heading {
+                        depth: 1,
+                        text,
+                        slug,
                     });
                 }
                 current_heading_text.clear();
             }
-            
+
             // H1見出し内のテキストを収集
             Event::Text(text) if in_h1_heading => {
                 current_heading_text.push_str(&text);
             }
-            
+
             // H1見出し内の他のイベント（Code、SoftBreak、HardBreakなど）もテキスト化
             Event::Code(code) if in_h1_heading => {
                 current_heading_text.push_str(&code);
             }
-            
+
             Event::SoftBreak if in_h1_heading => {
                 current_heading_text.push(' ');
             }
-            
+
             Event::HardBreak if in_h1_heading => {
                 current_heading_text.push(' ');
             }
-            
+
             // その他のイベントは無視（H1以外の見出し、非H1コンテンツなど）
             _ => {}
         }
     }
-    
+
     headings
 }
 
 // ===== 内部状態（将来のPR2向けシングルパス統合実装予定） =====
 
-// ✅ PR0完了：ASCII専用スラグ生成と衝突処理付きスラグ管理を実装済み
-//
 // 将来のPR2でシングルパス統合の際に以下の構造体を使用する可能性：
-// 
 // /// 見出し処理中の状態
 // struct HeadingState {
 //     depth: u8,
@@ -283,7 +263,6 @@ fn extract_headings(source: &str, options: &CmarkOptions) -> Vec<Heading> {
 // }
 //
 // /// 見出し収集器
-// ///
 // /// 参考: markdown-rsのCompileContext的な状態管理
 // /// - <https://github.com/wooorm/markdown-rs/blob/main/src/to_html.rs>
 // struct HeadingRecorder {
@@ -292,12 +271,8 @@ fn extract_headings(source: &str, options: &CmarkOptions) -> Vec<Heading> {
 //     used_slugs: HashSet<String>,
 // }
 
-// ===== WASMバインディング =====
-
 #[cfg(target_arch = "wasm32")]
 pub mod wasm_bindings;
-
-// ===== テスト =====
 
 #[cfg(test)]
 mod tests {
@@ -348,7 +323,7 @@ mod tests {
     fn event_based_extraction_rejects_tight_atx_syntax() {
         // イベントベース実装では `#Heading` (スペースなし) は見出しとして扱わない
         // これはCommonMark準拠の正しい動作
-        let markdown = "#NoSpace\n\nParagraph";  // 空行を追加して別段落にする
+        let markdown = "#NoSpace\n\nParagraph"; // 空行を追加して別段落にする
         let result = render(markdown, &Options::default());
 
         // pulldown-cmarkは #NoSpace を段落として処理する
@@ -735,11 +710,11 @@ mod tests {
         // コードブロック内の # Heading は見出しとして扱わない
         let markdown = "```\n# Not a heading\n```\n\n# Real heading";
         let result = render(markdown, &Options::default());
-        
+
         // HTML出力は正しくコードブロックを生成
         assert!(result.html.contains("<pre><code># Not a heading"));
         assert!(result.html.contains("<h1>Real heading</h1>"));
-        
+
         // 見出し抽出では実際の見出しのみを検出
         assert_eq!(result.headings.len(), 1);
         assert_eq!(result.headings[0].text, "Real heading");
@@ -750,11 +725,11 @@ mod tests {
         // #word (スペースなし) は見出しとして扱わない
         let markdown = "#NotAHeading\n\n# Real Heading";
         let result = render(markdown, &Options::default());
-        
+
         // pulldown-cmarkの動作：スペースなしは段落として処理される
         assert!(result.html.contains("<p>#NotAHeading</p>"));
         assert!(result.html.contains("<h1>Real Heading</h1>"));
-        
+
         // 見出し抽出では正しい見出しのみを検出
         assert_eq!(result.headings.len(), 1);
         assert_eq!(result.headings[0].text, "Real Heading");
@@ -765,11 +740,11 @@ mod tests {
         // ####### (7個以上) は見出しとして扱わない
         let markdown = "####### Invalid\n\n# Valid";
         let result = render(markdown, &Options::default());
-        
+
         // pulldown-cmarkの動作：7個以上の#は段落として処理される
         assert!(result.html.contains("<p>####### Invalid</p>"));
         assert!(result.html.contains("<h1>Valid</h1>"));
-        
+
         // 見出し抽出では有効な見出しのみを検出
         assert_eq!(result.headings.len(), 1);
         assert_eq!(result.headings[0].text, "Valid");
@@ -780,13 +755,13 @@ mod tests {
         // H1見出しのみを抽出し、他のレベルは無視する
         let markdown = "# H1 Title\n## H2 Subtitle\n### H3 Section\n# Another H1";
         let result = render(markdown, &Options::default());
-        
+
         // HTML出力には全ての見出しが含まれる
         assert!(result.html.contains("<h1>H1 Title</h1>"));
         assert!(result.html.contains("<h2>H2 Subtitle</h2>"));
         assert!(result.html.contains("<h3>H3 Section</h3>"));
         assert!(result.html.contains("<h1>Another H1</h1>"));
-        
+
         // 見出し抽出ではH1のみを収集
         assert_eq!(result.headings.len(), 2);
         assert_eq!(result.headings[0].text, "H1 Title");
@@ -800,10 +775,12 @@ mod tests {
         // 見出し内のインラインフォーマットを正しく処理
         let markdown = "# **Bold** and *italic* and `code` heading";
         let result = render(markdown, &Options::default());
-        
+
         // HTML出力には適切なフォーマットが含まれる
-        assert!(result.html.contains("<h1><strong>Bold</strong> and <em>italic</em> and <code>code</code> heading</h1>"));
-        
+        assert!(result.html.contains(
+            "<h1><strong>Bold</strong> and <em>italic</em> and <code>code</code> heading</h1>"
+        ));
+
         // 見出し抽出ではプレーンテキストとして収集
         assert_eq!(result.headings.len(), 1);
         assert_eq!(result.headings[0].text, "Bold and italic and code heading");
@@ -814,11 +791,11 @@ mod tests {
         // インラインコード内の # は見出しとして扱わない
         let markdown = "Text with `# not a heading` in code.\n\n# Real heading";
         let result = render(markdown, &Options::default());
-        
+
         // HTML出力は正しく処理される
         assert!(result.html.contains("<code># not a heading</code>"));
         assert!(result.html.contains("<h1>Real heading</h1>"));
-        
+
         // 見出し抽出では実際の見出しのみを検出
         assert_eq!(result.headings.len(), 1);
         assert_eq!(result.headings[0].text, "Real heading");
@@ -829,7 +806,7 @@ mod tests {
         // PR0仕様：ASCII専用スラグ生成（衝突処理付き）を実装
         let markdown = "# Test Heading";
         let result = render(markdown, &Options::default());
-        
+
         assert_eq!(result.headings.len(), 1);
         assert_eq!(result.headings[0].text, "Test Heading");
         assert_eq!(result.headings[0].depth, 1);
@@ -844,7 +821,7 @@ mod tests {
         // 英数字＋CJK文字の混在見出しでASCII部分のみスラグ化
         let markdown = "# Hello 世界 123\n\n# API ドキュメント v2.0\n\n# 測試 Test";
         let result = render(markdown, &Options::default());
-        
+
         assert_eq!(result.headings.len(), 3);
         assert_eq!(result.headings[0].slug, "hello-123");
         assert_eq!(result.headings[1].slug, "api-v2-0");
@@ -856,12 +833,12 @@ mod tests {
         // 自然スラッグと衝突解決スラッグの競合防止
         let markdown = "# Section\n\n# Section 1\n\n# Section\n\n# Section-1";
         let result = render(markdown, &Options::default());
-        
+
         assert_eq!(result.headings.len(), 4);
-        assert_eq!(result.headings[0].slug, "section");      // 初回
-        assert_eq!(result.headings[1].slug, "section-1");    // 自然生成
-        assert_eq!(result.headings[2].slug, "section-2");    // 衝突回避（section-1は使用済み）
-        assert_eq!(result.headings[3].slug, "section-1-1");  // さらに衝突回避
+        assert_eq!(result.headings[0].slug, "section"); // 初回
+        assert_eq!(result.headings[1].slug, "section-1"); // 自然生成
+        assert_eq!(result.headings[2].slug, "section-2"); // 衝突回避（section-1は使用済み）
+        assert_eq!(result.headings[3].slug, "section-1-1"); // さらに衝突回避
     }
 
     #[test]
@@ -869,7 +846,7 @@ mod tests {
         // 区切り文字の正規化と特殊文字処理
         let markdown = "# hello_world-test.file/path\n\n# Multiple   Spaces\n\n# @#$%^&*()";
         let result = render(markdown, &Options::default());
-        
+
         assert_eq!(result.headings.len(), 3);
         assert_eq!(result.headings[0].slug, "hello-world-test-file-path");
         assert_eq!(result.headings[1].slug, "multiple-spaces");
@@ -881,7 +858,7 @@ mod tests {
         // 複数の"section"フォールバックで衝突処理
         let markdown = "# !!!\n\n# 日本語\n\n# 😀🎉\n\n# @#$";
         let result = render(markdown, &Options::default());
-        
+
         assert_eq!(result.headings.len(), 4);
         assert_eq!(result.headings[0].slug, "section");
         assert_eq!(result.headings[1].slug, "section-1");
@@ -902,26 +879,28 @@ mod tests {
 # @#$%^&*()
 # Section-1
 "#;
-        
+
         let result = render(markdown, &Options::default());
         assert_eq!(result.headings.len(), 8);
-        
+
         // Verify all expected slugs are generated correctly
         let expected_slugs = vec![
-            "hello-world",          // Basic ASCII normalization
-            "section",              // CJK fallback to "section"
-            "section-1",            // First collision resolution
-            "section-2",            // Second collision resolution
+            "hello-world",            // Basic ASCII normalization
+            "section",                // CJK fallback to "section"
+            "section-1",              // First collision resolution
+            "section-2",              // Second collision resolution
             "api-documentation-v2-0", // Complex normalization
-            "hello-123",            // Mixed content (ASCII only)
-            "section-3",            // Symbol-only fallback
-            "section-1-1",          // Collision with existing "section-1"
+            "hello-123",              // Mixed content (ASCII only)
+            "section-3",              // Symbol-only fallback
+            "section-1-1",            // Collision with existing "section-1"
         ];
-        
+
         for (i, heading) in result.headings.iter().enumerate() {
-            assert_eq!(heading.slug, expected_slugs[i], 
-                      "Heading '{}' should have slug '{}' but got '{}'", 
-                      heading.text, expected_slugs[i], heading.slug);
+            assert_eq!(
+                heading.slug, expected_slugs[i],
+                "Heading '{}' should have slug '{}' but got '{}'",
+                heading.text, expected_slugs[i], heading.slug
+            );
         }
     }
 }

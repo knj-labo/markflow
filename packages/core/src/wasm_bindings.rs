@@ -26,15 +26,9 @@ pub fn render_wasm(source: String, options: JsValue) -> Result<JsValue, JsValue>
         .map_err(|e| JsValue::from_str(&e.to_string())) // エラー発生時は文字列メッセージに変換してJavaScriptに返す
 }
 
-/// WASM用slugify関数（単独公開）
+/// WASM用slugify関数
 ///
-/// 単体のテキストからスラッグ（URL対応文字列）を生成する関数。
-///
-/// ## スラッグ（slug）とは？
-/// URLで安全に使える形式の文字列：
-/// - 例: "Hello World! 日本語" → "hello-world-日本語"
-/// - スペース → ハイフン、大文字 → 小文字、特殊文字 → 削除
-///
+/// 単体のテキストからslug（URL対応文字列）を生成する関数。
 /// 衝突検出は行わないため、複数の見出しがある場合は`render_wasm`を使用してください。
 #[wasm_bindgen]
 pub fn slugify_wasm(text: String) -> String {
