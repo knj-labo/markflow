@@ -11,15 +11,24 @@
     "format": "biome format --write .",
     "typecheck": "pnpm --dir packages/rsmd run typecheck",
     "test": "pnpm --dir packages/rsmd run test",
+    "test:node": "vitest run --config examples/node/vitest.config.mjs",
+    "test:web": "vitest run --config examples/web/vitest.config.mjs",
+    "wasm:build": "wasm-pack build packages/core --target bundler --out-dir ../rsmd/wasm --out-name rsmd_core",
     "build": "pnpm --dir packages/rsmd run build",
     "clean": "rm -rf node_modules packages/rsmd/node_modules packages/rsmd/dist",
     "changeset": "changeset",
     "version": "changeset version",
     "release": "pnpm run build && changeset publish"
   },
+  "dependencies": {
+    "gray-matter": "^4.0.3"
+  },
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
-    "@changesets/cli": "^2.27.7"
+    "@changesets/cli": "^2.27.7",
+    "happy-dom": "^14.12.0",
+    "vitest": "^2.0.0",
+    "vite-plugin-wasm": "^3.3.0"
   },
   "packageManager": "pnpm@9.6.0",
   "engines": {

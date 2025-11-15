@@ -138,8 +138,15 @@ pnpm install
 # Build all packages
 pnpm build
 
+# Build only the WASM bundle
+pnpm wasm:build
+
 # Run tests
 pnpm test
+
+# Run WASM smoke tests
+pnpm test:node
+pnpm test:web
 
 # Run benchmarks
 pnpm bench
@@ -164,6 +171,10 @@ pnpm --filter @jp-knj/mdx-hybrid-engine-rust publish:binaries -- --dry-run
 ```
 
 Binary publishing is automated via GitHub Actions when releasing a new version.
+
+> The WASM artifacts are produced via `wasm-pack --target bundler`. When running locally with Vite/Vitest,
+> enable a WASM plugin such as `vite-plugin-wasm` (already configured under `examples/*`) so `.wasm`
+> imports resolve during bundling.
 
 ## License
 

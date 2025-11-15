@@ -1,4 +1,5 @@
 use crate::*;
+use serde_wasm_bindgen::{from_value, to_value};
 use wasm_bindgen::prelude::*;
 
 /// WASM用render関数
@@ -9,21 +10,16 @@ use wasm_bindgen::prelude::*;
 pub fn render_wasm(source: String, options: JsValue) -> Result<JsValue, JsValue> {
     // JavaScriptから渡されたオプションパラメータを安全に処理する
     let opts = if options.is_null() || options.is_undefined() {
-        // JavaScriptでnullまたはundefinedが渡された場合
-        Options::default() // Rustのデフォルト設定を使用
+        Options::default()
     } else {
-        // JavaScriptオブジェクトが渡された場合の変換処理
-        options
-            .into_serde() // JavaScriptオブジェクト → Rust構造体への変換を試行
-            .unwrap_or_else(|_| Options::default()) // 変換失敗時はデフォルト設定で安全にフォールバック
+        from_value(options).unwrap_or_else(|_| Options::default())
     };
 
     // メインのMarkdownレンダリング処理を実行
     let result = render(&source, &opts); // Rustネイティブ関数を呼び出し
 
     // レンダリング結果をJavaScript側で使える形式に変換
-    JsValue::from_serde(&result) // Rust構造体 → JavaScriptオブジェクトへのシリアライズ
-        .map_err(|e| JsValue::from_str(&e.to_string())) // エラー発生時は文字列メッセージに変換してJavaScriptに返す
+    to_value(&result).map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
 /// WASM用slugify関数
