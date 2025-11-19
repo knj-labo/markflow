@@ -13,9 +13,7 @@
     "test": "pnpm --dir packages/rsmd run test",
     "build": "pnpm --dir packages/rsmd run build",
     "clean": "rm -rf node_modules packages/rsmd/node_modules packages/rsmd/dist",
-    "changeset": "changeset",
-    "version": "changeset version",
-    "release": "pnpm run build && changeset publish"
+    "changeset": "changeset"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
