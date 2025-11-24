@@ -1,10 +1,5 @@
 use markdown::to_html;
 
-/// Returns the semantic version of the core crate.
-pub fn version() -> &'static str {
-    env!("CARGO_PKG_VERSION")
-}
-
 /// Parses Markdown into an HTML string using the `markdown` crate.
 pub fn parse(input: &str) -> String {
     to_html(input)
