@@ -3,8 +3,8 @@
 
 use napi_derive::napi;
 
-/// Returns the version string reported by the core crate.
+/// Parses markdown string to HTML
 #[napi]
-pub fn version() -> String {
-    markflow_core::version().to_string()
+pub fn parse(input: String) -> String {
+    markflow_core::parse(&input)
 }
