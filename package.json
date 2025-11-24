@@ -1,5 +1,5 @@
 {
-  "name": "mdx-hybrid",
+  "name": "reflow",
   "version": "0.0.1",
   "type": "module",
   "description": "Hybrid MDX compiler combining Rust speed with JavaScript compatibility",
@@ -12,7 +12,6 @@
     "typecheck": "pnpm --dir packages/rsmd run typecheck",
     "test": "pnpm --dir packages/rsmd run test",
     "build": "pnpm --dir packages/rsmd run build",
-    "clean": "rm -rf node_modules packages/rsmd/node_modules packages/rsmd/dist",
     "changeset": "changeset"
   },
   "devDependencies": {
