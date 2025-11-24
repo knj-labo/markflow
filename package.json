@@ -1,0 +1,12 @@
+{
+  "name": "markflow",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build:napi": "cargo build -p markflow-napi --release"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

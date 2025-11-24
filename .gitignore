@@ -140,6 +140,8 @@ vite.config.ts.timestamp-*
 
 # Rust build artifacts
 target/
+crates/*/target/
+crates/*/Cargo.lock
 
 # turbo cache
 .turbo
