@@ -1,6 +1,6 @@
 pub mod adapter;
 pub use adapter::PipeAdapter;
-use pulldown_cmark::{html, Options, Parser};
+use pulldown_cmark::{Options, Parser, html};
 
 /// Helper to get an Event Iterator from a string slice.
 /// This is what feeds into the PipeAdapter.
