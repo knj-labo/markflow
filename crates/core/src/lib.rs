@@ -1,8 +1,18 @@
-use markdown::to_html;
+pub mod adapter;
+pub use adapter::PipeAdapter;
+use pulldown_cmark::{Options, Parser, html};
 
-/// Parses Markdown into an HTML string using the `markdown` crate.
+/// Helper to get an Event Iterator from a string slice.
+/// This is what feeds into the PipeAdapter.
+pub fn get_event_iterator(input: &str) -> Parser<'_> {
+    Parser::new_ext(input, Options::empty())
+}
+
+/// Parses Markdown into an HTML string using pulldown-cmark.
 pub fn parse(input: &str) -> String {
-    to_html(input)
+    let mut output = String::new();
+    html::push_html(&mut output, get_event_iterator(input));
+    output
 }
 
 #[cfg(test)]

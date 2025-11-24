@@ -8,3 +8,4 @@ license.workspace = true
 [dependencies]
 lol_html = "1.2"
 markdown = "1.0.0"
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
