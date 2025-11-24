@@ -1,0 +1,9 @@
+[package]
+name = "markflow-core"
+description = "Markflow parser + PipeAdapter + streaming rewriter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+lol_html = "1.2"

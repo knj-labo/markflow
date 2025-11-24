@@ -1,0 +1,16 @@
+[workspace]
+members = [
+    "crates/core",
+    "crates/napi",
+    "crates/wasm",
+]
+resolver = "2"
+
+[workspace.package]
+authors = ["jp-knj"]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+version = "0.0.1"
+
+[workspace.metadata]
+description = "Streaming Markdown/MDX experiments for Astro content plumbing"
