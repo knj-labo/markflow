@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
-use markflow_core::{get_event_iterator, PipeAdapter};
+use markflow_core::{get_event_iterator, MarkdownStream};
 use std::io::{self, Write};
 
 // A dummy writer that discards data, similar to /dev/null
@@ -35,8 +35,7 @@ fn benchmark_pipeline(c: &mut Criterion) {
         b.iter(|| {
             let events = get_event_iterator(black_box(&input));
             let writer = NullWriter;
-            let adapter = PipeAdapter::new(writer);
-            let _ = adapter.drive(events).unwrap();
+            let _ = events.stream_to_writer(writer).unwrap();
         })
     });
 
