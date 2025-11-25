@@ -22,7 +22,7 @@ impl Default for RewriteOptions {
     }
 }
 
-/// Implements [`Write`] so the `PipeAdapter` can push raw HTML directly into lol_html.
+/// Implements [`Write`] so the streaming events API (via the `MarkdownStream` trait) can push raw HTML directly into lol_html.
 ///
 /// Internally we share the destination writer through a single `Rc<RefCell<Option<W>>>`, which is
 /// the only heap allocation required to satisfy lol_html's `OutputSink` trait without buffering
