@@ -4,10 +4,9 @@ use thiserror::Error;
 
 /// Markdown event to `io::Write` bridge utilities.
 pub mod adapter;
-/// Streaming HTML rewriting primitives backed by lol_html.
 pub mod streaming_rewriter;
 
-pub use adapter::PipeAdapter;
+pub use adapter::MarkdownStream;
 pub use streaming_rewriter::{RewriteOptions, StreamingRewriter};
 
 use pulldown_cmark::{Options, Parser};
@@ -23,20 +22,19 @@ pub enum MarkflowError {
     EncodingError(#[from] std::string::FromUtf8Error),
 }
 
-/// Helper to get an Event Iterator from a string slice.
+/// to get an Event Iterator from a string slice.
 pub fn get_event_iterator(input: &str) -> Parser<'_> {
     Parser::new_ext(input, Options::empty())
 }
 
-/// Parses Markdown and rewrites the resulting HTML stream with the default rewrite options.
+/// parses Markdown and rewrites the resulting HTML stream with the default rewrite options.
 pub fn parse(input: &str) -> Result<String, MarkflowError> {
     let events = get_event_iterator(input);
     let rewriter = StreamingRewriter::new(Vec::new(), RewriteOptions::default());
-    let adapter = PipeAdapter::new(rewriter);
 
-    let rewriter = adapter.drive(events)?;
+    let rewriter = events.stream_to_writer(rewriter)?;
+
     let output = rewriter.into_inner()?;
-
     let string = String::from_utf8(output)?;
     Ok(string)
 }

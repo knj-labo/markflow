@@ -40,7 +40,7 @@ impl<W: Write> StreamingRewriter<W> {
         let target = Rc::new(RefCell::new(Some(writer)));
         let sink_error = Rc::new(RefCell::new(None));
         let output_sink = OutputProxy::new(Rc::clone(&target), Rc::clone(&sink_error));
-        let settings = options.into_settings();
+        let settings = options.as_settings();
         let rewriter = HtmlRewriter::new(settings, output_sink);
 
         Self {
@@ -54,8 +54,8 @@ impl<W: Write> StreamingRewriter<W> {
     pub fn into_inner(mut self) -> io::Result<W> {
         self.finalize_if_needed()?;
 
-        let cell = Rc::try_unwrap(self.target)
-            .map_err(|_| io::Error::new(io::ErrorKind::Other, "rewriter still borrowed"))?;
+        let cell =
+            Rc::try_unwrap(self.target).map_err(|_| io::Error::other("rewriter still borrowed"))?;
 
         cell.into_inner()
             .ok_or_else(|| io::Error::new(io::ErrorKind::BrokenPipe, "writer missing"))
@@ -96,7 +96,7 @@ impl<W: Write> Write for StreamingRewriter<W> {
 }
 
 impl RewriteOptions {
-    fn into_settings(&self) -> Settings<'static, 'static> {
+    fn as_settings(&self) -> Settings<'static, 'static> {
         let mut settings = Settings::default();
         let mut handlers = Vec::new();
 
@@ -123,7 +123,7 @@ fn lazy_img_handler() -> (
 }
 
 fn rewriting_error_to_io(err: RewritingError) -> io::Error {
-    io::Error::new(io::ErrorKind::Other, err)
+    io::Error::other(err)
 }
 
 struct OutputProxy<W: Write> {
@@ -149,10 +149,10 @@ impl<W: Write> OutputSink for OutputProxy<W> {
 
         let mut borrow = self.target.borrow_mut();
 
-        if let Some(writer) = borrow.as_mut() {
-            if let Err(err) = writer.write_all(chunk) {
-                *self.sink_error.borrow_mut() = Some(err);
-            }
+        if let Some(writer) = borrow.as_mut()
+            && let Err(err) = writer.write_all(chunk)
+        {
+            *self.sink_error.borrow_mut() = Some(err);
         }
     }
 }
