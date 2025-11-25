@@ -36,14 +36,14 @@ fn benchmark_pipeline(c: &mut Criterion) {
             let events = get_event_iterator(black_box(&input));
             let writer = NullWriter;
             let adapter = PipeAdapter::new(writer);
-            adapter.drive(events).unwrap();
+            let _ = adapter.drive(events).unwrap();
         })
     });
 
     // 2. Benchmark Buffering (The traditional way: Render to String, then Write)
     group.bench_function("buffering_string", |b| {
         b.iter(|| {
-            let events = get_event_iter(black_box(&input));
+            let events = get_event_iterator(black_box(&input));
             let mut html_output = String::new();
             // allocating a huge string
             pulldown_cmark::html::push_html(&mut html_output, events);
