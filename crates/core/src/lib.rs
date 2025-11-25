@@ -1,5 +1,5 @@
 #![deny(missing_docs)]
-//! Streaming Markdown core utilities: parser, PipeAdapter, and HTML rewriter glue.
+//! Streaming Markdown core utilities: parser, MarkdownStream, and HTML rewriter glue.
 use thiserror::Error;
 
 /// Markdown event to `io::Write` bridge utilities.
