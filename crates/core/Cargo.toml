@@ -6,6 +6,6 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-lol_html = "1.2"
-markdown = "1.0.0"
+lol_html = "2.0"
 pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
+thiserror = "2.0.17"

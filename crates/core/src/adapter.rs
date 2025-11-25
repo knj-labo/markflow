@@ -13,11 +13,12 @@ impl<W: Write> PipeAdapter<W> {
         Self { writer }
     }
 
-    /// Consumes the event iterator and drives the data into the writer.
+    /// Consumes the event iterator and drives the data into the writer, returning the writer so the
+    /// caller can recover the underlying sink (e.g., the streaming rewriter).
     ///
     /// # Arguments
     /// * `events` - The iterator yielding Markdown events.
-    pub fn drive<'a, I>(self, events: I) -> io::Result<()>
+    pub fn drive<'a, I>(self, events: I) -> io::Result<W>
     where
         I: Iterator<Item = Event<'a>>,
     {
@@ -27,8 +28,11 @@ impl<W: Write> PipeAdapter<W> {
 
         html::write_html_io(&mut writer, events)?;
 
-        // Flush the underlying writer to ensure all bytes are sent
-        writer.flush()
+        // Flush the underlying writer to ensure lol_html emits the final chunk before the caller
+        // takes ownership again.
+        writer.flush()?;
+
+        Ok(writer)
     }
 }
 
@@ -45,7 +49,11 @@ mod tests {
         let parser = Parser::new_ext(markdown_input, Options::empty());
         let adapter = PipeAdapter::new(&mut output_buffer);
 
-        adapter.drive(parser).expect("Failed to drive stream");
+        adapter
+            .drive(parser)
+            .expect("Failed to drive stream")
+            .flush()
+            .expect("Flush should succeed");
 
         let output_str = String::from_utf8(output_buffer).unwrap();
 
