@@ -155,3 +155,8 @@ example/astro/src/env.d.ts
 
 # mcp
 .serena/
+
+# NAPI auto-generated files
+crates/napi/index.js
+crates/napi/index.d.ts
+crates/napi/*.node

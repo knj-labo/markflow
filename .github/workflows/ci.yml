@@ -28,6 +28,7 @@ jobs:
         with:
           node-version: 20
           cache: "pnpm"
+          cache-dependency-path: crates/napi/pnpm-lock.yaml
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -47,7 +48,13 @@ jobs:
         run: cargo test --workspace
 
       - name: Install dependencies
+        working-directory: crates/napi
         run: pnpm install --frozen-lockfile
 
       - name: Build NAPI binding
+        working-directory: crates/napi
         run: pnpm run build:napi
+
+      - name: Smoke test NAPI binding
+        working-directory: crates/napi
+        run: pnpm run smoke:napi -- samples/large.md
