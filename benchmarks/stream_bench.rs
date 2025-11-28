@@ -33,16 +33,16 @@ fn benchmark_pipeline(c: &mut Criterion) {
     // 1. Benchmark the Streaming Adapter (No intermediate String allocation)
     group.bench_function("streaming_adapter", |b| {
         b.iter(|| {
-            let events = get_event_iterator(black_box(&input));
+            let events = get_event_iterator(black_box(&input)).expect("parser");
             let writer = NullWriter;
-            let _ = events.stream_to_writer(writer).unwrap();
+            let _ = events.stream_to_writer(writer).expect("streaming");
         })
     });
 
     // 2. Benchmark Buffering (The traditional way: Render to String, then Write)
     group.bench_function("buffering_string", |b| {
         b.iter(|| {
-            let events = get_event_iterator(black_box(&input));
+            let events = get_event_iterator(black_box(&input)).expect("parser");
             let mut html_output = String::new();
             // allocating a huge string
             pulldown_cmark::html::push_html(&mut html_output, events);

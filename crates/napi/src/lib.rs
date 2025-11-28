@@ -48,7 +48,7 @@ pub fn parse(input: String) -> napi::Result<String> {
 /// Parses markdown string to HTML with custom rewrite options
 #[napi]
 pub fn parse_with_options(input: String, config: RewriteConfig) -> napi::Result<String> {
-    let events = markflow_core::get_event_iterator(&input);
+    let events = markflow_core::get_event_iterator(&input).map_err(convert_error)?;
     let options: RewriteOptions = config.into();
     let rewriter = StreamingRewriter::new(Vec::new(), options);
 

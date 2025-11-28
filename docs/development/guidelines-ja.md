@@ -15,10 +15,5 @@ Rust 2021 のデフォルトに従い、インデントは 4 スペース、フ�
 ## テストとベンチマーク
 ユニットテストはコード付近（`mod tests`）に置き、入力は `fixtures/` から取得します。ストリーミング／リグレッションのカバレッジには巨大スナップショットではなく Criterion ベンチを使い、ピーク RSS を `benchmarks/results.md` に記録します。Node バインディングは `crates/napi/__tests__/` 配下に AVA/Vitest の `<feature>.spec.ts` を追加します。`core::parser` では 85% 以上のカバレッジを目指し、リライトルールを追加するたびにベンチを用意してください。
 
-## 実装ロードマップ（Phase 1 抜粋）
-- Core Parser Implementation
-  - [ ] `markdown-rs` の導入
-  - [ ] Markdown 基本機能の検証
-
 ## コミットと PR ワークフロー
 Conventional Commits（例: `feat: parser events`, `perf: glue rss drop`）を使用します。全ての PR に summary、TODO.md で影響を受けたタスク、パフォーマンスエビデンス（ベンチ結果またはメモリグラフ）、`node scripts/smoke-napi.mjs` の検証手順を含めます。関連 Issue を参照し、必要に応じて CLI 出力のスクリーンショットを添付します。lint/test を省略する PR やシークレットを含む PR は拒否し、`.env.local` と `dotenvy` を利用してください。

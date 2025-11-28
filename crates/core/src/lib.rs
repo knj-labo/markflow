@@ -1,6 +1,5 @@
 #![deny(missing_docs)]
 //! Streaming Markdown core utilities: parser, MarkdownStream, and HTML rewriter glue.
-use thiserror::Error;
 
 /// Markdown event to `io::Write` bridge utilities.
 pub mod adapter;
@@ -9,7 +8,9 @@ pub mod streaming_rewriter;
 pub use adapter::MarkdownStream;
 pub use streaming_rewriter::{RewriteOptions, StreamingRewriter};
 
-use pulldown_cmark::{Options, Parser};
+use thiserror::Error;
+
+mod markdown_adapter;
 
 /// Errors that can occur during Markdown processing.
 #[derive(Debug, Error)]
@@ -20,16 +21,22 @@ pub enum MarkflowError {
     /// UTF-8 encoding error.
     #[error("Encoding error: {0}")]
     EncodingError(#[from] std::string::FromUtf8Error),
+    /// markdown-rs parser error surfaced through the adapter.
+    #[error("markdown-rs error: {0}")]
+    MarkdownAdapter(String),
 }
 
-/// to get an Event Iterator from a string slice.
-pub fn get_event_iterator(input: &str) -> Parser<'_> {
-    Parser::new_ext(input, Options::empty())
+/// Returns an iterator over Markdown events backed by `markdown-rs`.
+pub fn get_event_iterator(
+    input: &str,
+) -> Result<markdown_adapter::MarkdownRsEventIter, MarkflowError> {
+    markdown_adapter::MarkdownRsEventIter::new(input)
+        .map_err(|err| MarkflowError::MarkdownAdapter(err.to_string()))
 }
 
 /// parses Markdown and rewrites the resulting HTML stream with the default rewrite options.
 pub fn parse(input: &str) -> Result<String, MarkflowError> {
-    let events = get_event_iterator(input);
+    let events = get_event_iterator(input)?;
     let rewriter = StreamingRewriter::new(Vec::new(), RewriteOptions::default());
 
     let rewriter = events.stream_to_writer(rewriter)?;
@@ -38,6 +45,9 @@ pub fn parse(input: &str) -> Result<String, MarkflowError> {
     let string = String::from_utf8(output)?;
     Ok(string)
 }
+
+/// Iterator alias so callers don't need to depend on the adapter module path.
+pub type MarkdownEventStream = markdown_adapter::MarkdownRsEventIter;
 
 #[cfg(test)]
 mod tests {
