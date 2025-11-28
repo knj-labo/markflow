@@ -3,7 +3,12 @@
 
 /// Markdown event to `io::Write` bridge utilities.
 pub mod adapter;
+/// Core event types that decouple Markflow from pulldown-cmark specifics.
+#[allow(missing_docs)]
+pub mod event;
 pub mod streaming_rewriter;
+
+mod html_renderer;
 
 pub use adapter::MarkdownStream;
 pub use streaming_rewriter::{RewriteOptions, StreamingRewriter};

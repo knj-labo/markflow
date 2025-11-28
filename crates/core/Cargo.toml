@@ -7,7 +7,6 @@ license.workspace = true
 
 [dependencies]
 lol_html = "2.0"
-pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
 thiserror = "2.0.17"
 markdown = "1.0.0-alpha.16"
 log = "0.4"

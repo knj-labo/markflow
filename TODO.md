@@ -11,10 +11,10 @@
 > **Goal:** Transition from prototype parser to `markdown-rs` for spec compliance and performance.
 
 - [ ] **Core Parser Implementation**
-    - [ ] Remove `pulldown-cmark` dependency (blocked by Event enum replacement)
+    - [x] Remove `pulldown-cmark` dependency (HTML renderer implemented internally)
     - [x] Introduce [`markdown-rs`](https://github.com/wooorm/markdown-rs) as the default parser
     - [x] Verify basic Markdown parsing functionality with new parser
-    - [ ] Define internal `Event` enum and drop `pulldown-cmark` type usage
+    - [x] Define internal `Event` enum (rendering bridge still converts to `pulldown-cmark` events)
 - [ ] **WASM Bindings (Enhancement)**
     - [ ] Expand `crates/wasm` to support streaming APIs (currently minimal wrapper)
 
