@@ -1,6 +1,6 @@
-#![cfg(feature = "markdown-rs")]
 //! Adapter that exposes `markdown-rs` AST nodes as `pulldown_cmark::Event`s.
 
+use log::warn;
 use markdown::{ParseOptions, mdast, message::Message, to_mdast};
 use pulldown_cmark::{Alignment, CowStr, Event, HeadingLevel, LinkType, Tag};
 
@@ -48,6 +48,7 @@ struct EventBuilder {
 }
 
 impl EventBuilder {
+    #[allow(unreachable_patterns)]
     fn visit(&mut self, node: &mdast::Node) {
         match node {
             mdast::Node::Root(root) => self.visit_children(&root.children),
@@ -147,10 +148,20 @@ impl EventBuilder {
             }
             mdast::Node::LinkReference(link) => self.handle_link_reference(link),
             mdast::Node::ImageReference(image) => self.handle_image_reference(image),
+            mdast::Node::Definition(_) => self.warn_unsupported("definition"),
+            mdast::Node::Toml(_) => self.warn_unsupported("toml"),
+            mdast::Node::Yaml(_) => self.warn_unsupported("yaml"),
+            mdast::Node::MdxjsEsm(_) => self.warn_unsupported("mdxjsEsm"),
+            mdast::Node::MdxFlowExpression(_) => self.warn_unsupported("mdxFlowExpression"),
+            mdast::Node::MdxTextExpression(_) => self.warn_unsupported("mdxTextExpression"),
+            mdast::Node::MdxJsxFlowElement(_) => self.warn_unsupported("mdxJsxFlowElement"),
+            mdast::Node::MdxJsxTextElement(_) => self.warn_unsupported("mdxJsxTextElement"),
             // Default: keep walking children so nested inline nodes still render.
             other => {
                 if let Some(children) = other.children() {
                     self.visit_children(children);
+                } else {
+                    self.warn_unsupported("unknown");
                 }
             }
         }
@@ -237,6 +248,10 @@ impl EventBuilder {
                 .push(Event::Text(CowStr::from(image.alt.clone())));
         }
         self.events.push(Event::End(tag.to_end()));
+    }
+
+    fn warn_unsupported(&self, node_name: &str) {
+        warn!("Skipping unsupported markdown node: {node_name}");
     }
 }
 

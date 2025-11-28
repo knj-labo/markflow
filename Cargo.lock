@@ -298,6 +298,7 @@ dependencies = [
 name = "markflow-core"
 version = "0.0.1"
 dependencies = [
+ "log",
  "lol_html",
  "markdown",
  "pulldown-cmark",
