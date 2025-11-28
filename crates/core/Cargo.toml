@@ -9,3 +9,8 @@ license.workspace = true
 lol_html = "2.0"
 pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
 thiserror = "2.0.17"
+markdown = { version = "1.0.0-alpha.16", optional = true }
+
+[features]
+default = []
+markdown-rs = ["markdown"]
