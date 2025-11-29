@@ -193,20 +193,20 @@ impl<W: Write> HtmlRenderer<W> {
                 };
                 self.writer.write_all(b"<")?;
                 self.writer.write_all(tag)?;
-                if let Some(state) = self.table_stack.last_mut() {
-                    if let Some(alignment) = state.alignments.get(state.column_index) {
-                        if !matches!(alignment, Alignment::None) {
-                            self.writer.write_all(b" style=\"text-align:")?;
-                            self.writer.write_all(match alignment {
-                                Alignment::Left => b"left",
-                                Alignment::Right => b"right",
-                                Alignment::Center => b"center",
-                                Alignment::None => b"left",
-                            })?;
-                            self.writer.write_all(b"\"")?;
-                        }
-                        state.column_index += 1;
+                if let Some(state) = self.table_stack.last_mut()
+                    && let Some(alignment) = state.alignments.get(state.column_index)
+                {
+                    if !matches!(alignment, Alignment::None) {
+                        self.writer.write_all(b" style=\"text-align:")?;
+                        self.writer.write_all(match alignment {
+                            Alignment::Left => b"left",
+                            Alignment::Right => b"right",
+                            Alignment::Center => b"center",
+                            Alignment::None => b"left",
+                        })?;
+                        self.writer.write_all(b"\"")?;
                     }
+                    state.column_index += 1;
                 }
                 self.writer.write_all(b">")
             }
@@ -233,9 +233,7 @@ impl<W: Write> HtmlRenderer<W> {
     fn write_end_tag(&mut self, end: TagEnd) -> io::Result<()> {
         match end {
             TagEnd::Paragraph => self.writer.write_all(b"</p>\n"),
-            TagEnd::Heading(level) => {
-                write!(self.writer, "</h{}>\n", level as u8)
-            }
+            TagEnd::Heading(level) => writeln!(self.writer, "</h{}>", level as u8),
             TagEnd::BlockQuote => self.writer.write_all(b"</blockquote>\n"),
             TagEnd::CodeBlock => self.writer.write_all(b"</code></pre>\n"),
             TagEnd::List(ordered) => {

@@ -196,7 +196,7 @@ impl EventBuilder {
             title: link
                 .title
                 .clone()
-                .map_or(Cow::Borrowed(""), |t| Cow::Owned(t)),
+                .map_or(Cow::Borrowed(""), Cow::Owned),
             id: Cow::Owned(String::new()),
         };
         self.with_tag(tag, &link.children);
@@ -209,7 +209,7 @@ impl EventBuilder {
             title: image
                 .title
                 .clone()
-                .map_or(Cow::Borrowed(""), |t| Cow::Owned(t)),
+                .map_or(Cow::Borrowed(""), Cow::Owned),
             id: Cow::Owned(String::new()),
         };
         self.events.push(Event::Start(tag.clone()));
@@ -275,11 +275,12 @@ fn heading_slug(children: &[mdast::Node]) -> Option<String> {
                 slug.push(lower);
             }
             last_dash = false;
-        } else if ch.is_whitespace() || matches!(ch, '-' | '_' | ':' | '.') {
-            if !slug.is_empty() && !last_dash {
-                slug.push('-');
-                last_dash = true;
-            }
+        } else if (ch.is_whitespace() || matches!(ch, '-' | '_' | ':' | '.'))
+            && !slug.is_empty()
+            && !last_dash
+        {
+            slug.push('-');
+            last_dash = true;
         }
     }
 
