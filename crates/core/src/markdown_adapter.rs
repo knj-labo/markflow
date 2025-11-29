@@ -193,10 +193,7 @@ impl EventBuilder {
         let tag = Tag::Link {
             link_type: LinkType::Inline,
             dest_url: Cow::Owned(link.url.clone()),
-            title: link
-                .title
-                .clone()
-                .map_or(Cow::Borrowed(""), Cow::Owned),
+            title: link.title.clone().map_or(Cow::Borrowed(""), Cow::Owned),
             id: Cow::Owned(String::new()),
         };
         self.with_tag(tag, &link.children);
@@ -206,10 +203,7 @@ impl EventBuilder {
         let tag = Tag::Image {
             link_type: LinkType::Inline,
             dest_url: Cow::Owned(image.url.clone()),
-            title: image
-                .title
-                .clone()
-                .map_or(Cow::Borrowed(""), Cow::Owned),
+            title: image.title.clone().map_or(Cow::Borrowed(""), Cow::Owned),
             id: Cow::Owned(String::new()),
         };
         self.events.push(Event::Start(tag.clone()));
