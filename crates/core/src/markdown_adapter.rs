@@ -193,10 +193,7 @@ impl EventBuilder {
         let tag = Tag::Link {
             link_type: LinkType::Inline,
             dest_url: Cow::Owned(link.url.clone()),
-            title: link
-                .title
-                .clone()
-                .map_or(Cow::Borrowed(""), |t| Cow::Owned(t)),
+            title: link.title.clone().map_or(Cow::Borrowed(""), Cow::Owned),
             id: Cow::Owned(String::new()),
         };
         self.with_tag(tag, &link.children);
@@ -206,10 +203,7 @@ impl EventBuilder {
         let tag = Tag::Image {
             link_type: LinkType::Inline,
             dest_url: Cow::Owned(image.url.clone()),
-            title: image
-                .title
-                .clone()
-                .map_or(Cow::Borrowed(""), |t| Cow::Owned(t)),
+            title: image.title.clone().map_or(Cow::Borrowed(""), Cow::Owned),
             id: Cow::Owned(String::new()),
         };
         self.events.push(Event::Start(tag.clone()));
@@ -275,11 +269,12 @@ fn heading_slug(children: &[mdast::Node]) -> Option<String> {
                 slug.push(lower);
             }
             last_dash = false;
-        } else if ch.is_whitespace() || matches!(ch, '-' | '_' | ':' | '.') {
-            if !slug.is_empty() && !last_dash {
-                slug.push('-');
-                last_dash = true;
-            }
+        } else if (ch.is_whitespace() || matches!(ch, '-' | '_' | ':' | '.'))
+            && !slug.is_empty()
+            && !last_dash
+        {
+            slug.push('-');
+            last_dash = true;
         }
     }
 
