@@ -1,7 +1,7 @@
 #![deny(missing_docs)]
 //! Node.js bindings that surface Markflow's Rust implementation.
 
-use markflow_core::{MarkdownStream, RewriteOptions, StreamingRewriter};
+use markflow_core::{MarkdownStream, MarkflowError, RewriteOptions, StreamingRewriter};
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
@@ -72,12 +72,18 @@ pub fn parse_with_stats(input: String) -> napi::Result<ParseResult> {
     })
 }
 
-/// Converts Markflow errors to NAPI errors with appropriate status codes
-fn convert_error<E: std::fmt::Display>(err: E) -> Error {
-    let message = err.to_string();
-    if message.contains("encoding") || message.contains("UTF-8") {
-        Error::new(Status::InvalidArg, format!("Encoding error: {}", message))
-    } else {
-        Error::new(Status::GenericFailure, format!("Parse error: {}", message))
+/// Improved error converter that matches on enum variants
+fn convert_error<E: Into<MarkflowError>>(err: E) -> Error {
+    let err = err.into();
+    match err {
+        // Map specific errors to specific NAPI statuses
+        MarkflowError::EncodingError(e) => {
+            Error::new(Status::InvalidArg, format!("Encoding error: {}", e))
+        }
+        // IO errors and Adapter errors usually imply a runtime failure
+        MarkflowError::IoError(e) => Error::from_reason(format!("IO error: {}", e)),
+        MarkflowError::MarkdownAdapter(msg) => {
+            Error::from_reason(format!("Markdown parser error: {}", msg))
+        }
     }
 }
