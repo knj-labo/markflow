@@ -3,7 +3,12 @@
 
 /// Markdown event to `io::Write` bridge utilities.
 pub mod adapter;
+/// Core event types that decouple Markflow from pulldown-cmark specifics.
+#[allow(missing_docs)]
+pub mod event;
 pub mod streaming_rewriter;
+
+mod html_renderer;
 
 pub use adapter::MarkdownStream;
 pub use streaming_rewriter::{RewriteOptions, StreamingRewriter};
@@ -56,8 +61,8 @@ mod tests {
     #[test]
     fn test_parse() {
         let input = "# Hello, World!";
-        let expected = "<h1>Hello, World!</h1>";
-        assert_eq!(parse(input).unwrap().trim(), expected);
+        let output = parse(input).unwrap();
+        assert!(output.contains("<h1 id=\"hello-world\">Hello, World!</h1>"));
     }
 
     #[test]
@@ -73,5 +78,26 @@ mod tests {
         let input = "![alt](img.png)";
         let output = parse(input).unwrap();
         assert!(output.contains("loading=\"lazy\""));
+    }
+
+    #[test]
+    fn test_parse_table_alignment_and_math() {
+        let input = "| A | B |\n|:-|:-:|\n| $x$ | $$y$$ |";
+        let output = parse(input).unwrap();
+        assert!(output.contains("<table>"));
+        assert!(
+            output.contains(
+                "<td style=\"text-align:left\"><span class=\"math-inline\">x</span></td>"
+            )
+        );
+        assert!(output.contains("<span class=\"math-inline\">y</span>"));
+    }
+
+    #[test]
+    fn test_parse_frontmatter_passthrough() {
+        let input = "---\ntitle: test\n---\n\ncontent";
+        let output = parse(input).unwrap();
+        assert!(output.contains("frontmatter"));
+        assert!(output.contains("title: test"));
     }
 }

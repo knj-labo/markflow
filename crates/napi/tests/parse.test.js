@@ -45,6 +45,13 @@ test('parse() handles lists', (t) => {
   t.true(output.includes('</ul>'));
 });
 
+test('parse() assigns heading ids', (t) => {
+  const input = '# Hello Heading';
+  const output = parse(input);
+
+  t.true(output.includes('id="hello-heading"'));
+});
+
 test('parse() handles links', (t) => {
   const input = '[Link text](https://example.com)';
   const output = parse(input);
@@ -62,4 +69,13 @@ test('parse() returns a string', (t) => {
 test('parse() handles empty input', (t) => {
   const output = parse('');
   t.is(typeof output, 'string');
+});
+
+test('parse() passes through HTML blocks and math', (t) => {
+  const input = '<section>Hello</section>\n\nInline $x$ and $$y$$';
+  const output = parse(input);
+
+  t.true(output.includes('<section>Hello</section>'));
+  t.true(output.includes('math-inline'));
+  t.true(output.includes('math-display'));
 });

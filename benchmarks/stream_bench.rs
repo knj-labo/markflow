@@ -1,5 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use markflow_core::{get_event_iterator, MarkdownStream};
+use markdown::to_html;
 use std::io::{self, Write};
 
 // A dummy writer that discards data, similar to /dev/null
@@ -39,14 +40,10 @@ fn benchmark_pipeline(c: &mut Criterion) {
         })
     });
 
-    // 2. Benchmark Buffering (The traditional way: Render to String, then Write)
+    // 2. Benchmark Buffering (render entire document before writing)
     group.bench_function("buffering_string", |b| {
         b.iter(|| {
-            let events = get_event_iterator(black_box(&input)).expect("parser");
-            let mut html_output = String::new();
-            // allocating a huge string
-            pulldown_cmark::html::push_html(&mut html_output, events);
-            // then writing it
+            let html_output = to_html(black_box(&input));
             let mut writer = NullWriter;
             writer.write_all(html_output.as_bytes()).unwrap();
         })

@@ -1,4 +1,5 @@
-use pulldown_cmark::{Event, html};
+use crate::event::Event;
+use crate::html_renderer::HtmlRenderer;
 use std::io::{self, Write};
 
 /// Extension trait to pipe Markdown events directly to a Writer.
@@ -19,33 +20,40 @@ impl<'a, I> MarkdownStream for I
 where
     I: Iterator<Item = Event<'a>>,
 {
-    fn stream_to_writer<W: Write>(self, mut writer: W) -> io::Result<W> {
-        html::write_html_io(&mut writer, self)?;
-        writer.flush()?;
-
-        Ok(writer)
+    fn stream_to_writer<W: Write>(self, writer: W) -> io::Result<W> {
+        HtmlRenderer::new(writer).render(self)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pulldown_cmark::{Options, Parser};
+    use crate::event::{Event as MfEvent, HeadingLevel, Tag};
+    use std::borrow::Cow;
 
     #[test]
     fn test_streaming_output() {
-        let markdown_input = "# Hello Stream\n\n* Item 1\n* Item 2";
         let mut output_buffer = Vec::new(); // Implements Write
 
-        let parser = Parser::new_ext(markdown_input, Options::empty());
+        let heading = Tag::Heading {
+            level: HeadingLevel::H1,
+            id: None,
+            classes: Vec::new(),
+            attrs: Vec::new(),
+        };
+        let events = vec![
+            MfEvent::Start(heading.clone()),
+            MfEvent::Text(Cow::Borrowed("Hello Stream")),
+            MfEvent::End(heading.to_end()),
+        ];
 
-        parser
+        events
+            .into_iter()
             .stream_to_writer(&mut output_buffer)
             .expect("Failed to drive stream");
 
         let output_str = String::from_utf8(output_buffer).unwrap();
 
         assert!(output_str.contains("<h1>Hello Stream</h1>"));
-        assert!(output_str.contains("<li>Item 1</li>"));
     }
 }

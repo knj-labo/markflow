@@ -1,23 +1,26 @@
-//! Adapter that exposes `markdown-rs` AST nodes as `pulldown_cmark::Event`s.
+//! Adapter that exposes `markdown-rs` AST nodes as Markflow core events.
 
+use std::borrow::Cow;
+use std::convert::TryFrom;
+
+use html_escape::encode_text_to_string;
 use log::warn;
 use markdown::{ParseOptions, mdast, message::Message, to_mdast};
-use pulldown_cmark::{Alignment, CowStr, Event, HeadingLevel, LinkType, Tag};
 
-/// Iterator that yields `pulldown_cmark` events backed by `markdown-rs`.
-///
-/// The adapter currently materializes the AST so we can progressively map the
-/// constructs we care about onto the legacy event pipeline. Streaming will be
-/// re-introduced once we drop `pulldown_cmark` entirely.
+use crate::event::{Alignment, CodeBlockKind, Event, HeadingLevel, LinkType, Tag};
+
 pub struct MarkdownRsEventIter {
     events: Vec<Event<'static>>,
     cursor: usize,
 }
 
 impl MarkdownRsEventIter {
-    /// Parses the input with `markdown-rs` and prepares an event stream.
     pub fn new(input: &str) -> Result<Self, Message> {
-        let tree = to_mdast(input, &ParseOptions::default())?;
+        let mut options = ParseOptions::gfm();
+        options.constructs.frontmatter = true;
+        options.constructs.math_flow = true;
+        options.constructs.math_text = true;
+        let tree = to_mdast(input, &options)?;
         let mut builder = EventBuilder::default();
         builder.visit(&tree);
         Ok(Self {
@@ -60,17 +63,17 @@ impl EventBuilder {
                 }
             }
             mdast::Node::Heading(heading) => {
-                let level =
-                    HeadingLevel::try_from(heading.depth as usize).unwrap_or(HeadingLevel::H6);
+                let heading_id = heading_slug(&heading.children);
                 let tag = Tag::Heading {
-                    level,
-                    id: None,
+                    level: HeadingLevel::try_from(heading.depth as usize)
+                        .unwrap_or(HeadingLevel::H6),
+                    id: heading_id.map(Cow::Owned),
                     classes: Vec::new(),
                     attrs: Vec::new(),
                 };
                 self.with_tag(tag, &heading.children)
             }
-            mdast::Node::Blockquote(block) => self.with_tag(Tag::BlockQuote(None), &block.children),
+            mdast::Node::Blockquote(block) => self.with_tag(Tag::BlockQuote, &block.children),
             mdast::Node::List(list) => {
                 let start = if list.ordered {
                     Some(list.start.unwrap_or(1) as u64)
@@ -96,67 +99,73 @@ impl EventBuilder {
             }
             mdast::Node::ThematicBreak(_) => self.events.push(Event::Rule),
             mdast::Node::Code(code) => {
-                let tag = Tag::CodeBlock(
-                    match &code.lang {
-                        Some(lang) => TagCodeBlockKind::fenced(lang),
-                        None => TagCodeBlockKind::indented(),
-                    }
-                    .into_kind(),
-                );
+                let tag = Tag::CodeBlock(match &code.lang {
+                    Some(lang) => CodeBlockKind::Fenced(Cow::Owned(lang.clone())),
+                    None => CodeBlockKind::Indented,
+                });
                 self.events.push(Event::Start(tag.clone()));
                 self.events
-                    .push(Event::Text(CowStr::from(code.value.clone())));
+                    .push(Event::Text(Cow::Owned(code.value.clone())));
                 self.events.push(Event::End(tag.to_end()));
             }
             mdast::Node::Text(text) => {
                 self.events
-                    .push(Event::Text(CowStr::from(text.value.clone())));
+                    .push(Event::Text(Cow::Owned(text.value.clone())));
             }
             mdast::Node::Emphasis(emphasis) => self.with_tag(Tag::Emphasis, &emphasis.children),
             mdast::Node::Strong(strong) => self.with_tag(Tag::Strong, &strong.children),
             mdast::Node::Delete(delete) => self.with_tag(Tag::Strikethrough, &delete.children),
             mdast::Node::InlineCode(code) => {
                 self.events
-                    .push(Event::Code(CowStr::from(code.value.clone())));
+                    .push(Event::Code(Cow::Owned(code.value.clone())));
             }
             mdast::Node::InlineMath(math) => {
                 self.events
-                    .push(Event::InlineMath(CowStr::from(math.value.clone())));
+                    .push(Event::InlineMath(Cow::Owned(math.value.clone())));
             }
             mdast::Node::Math(math) => {
                 self.events
-                    .push(Event::DisplayMath(CowStr::from(math.value.clone())));
+                    .push(Event::DisplayMath(Cow::Owned(math.value.clone())));
             }
             mdast::Node::Break(_) => self.events.push(Event::HardBreak),
             mdast::Node::Link(link) => self.handle_link(link),
             mdast::Node::Image(image) => self.handle_image(image),
             mdast::Node::Html(html) => {
                 self.events
-                    .push(Event::Html(CowStr::from(html.value.clone())));
+                    .push(Event::Html(Cow::Owned(html.value.clone())));
             }
             mdast::Node::Table(table) => self.handle_table(table),
             mdast::Node::TableRow(row) => self.with_tag(Tag::TableRow, &row.children),
             mdast::Node::TableCell(cell) => self.with_tag(Tag::TableCell, &cell.children),
-            mdast::Node::FootnoteDefinition(def) => {
-                let label = CowStr::from(def.identifier.clone());
-                self.with_tag(Tag::FootnoteDefinition(label), &def.children)
-            }
+            mdast::Node::FootnoteDefinition(def) => self.with_tag(
+                Tag::FootnoteDefinition(Cow::Owned(def.identifier.clone())),
+                &def.children,
+            ),
             mdast::Node::FootnoteReference(reference) => {
-                self.events.push(Event::FootnoteReference(CowStr::from(
+                self.events.push(Event::FootnoteReference(Cow::Owned(
                     reference.identifier.clone(),
                 )));
             }
             mdast::Node::LinkReference(link) => self.handle_link_reference(link),
             mdast::Node::ImageReference(image) => self.handle_image_reference(image),
             mdast::Node::Definition(_) => self.warn_unsupported("definition"),
-            mdast::Node::Toml(_) => self.warn_unsupported("toml"),
-            mdast::Node::Yaml(_) => self.warn_unsupported("yaml"),
-            mdast::Node::MdxjsEsm(_) => self.warn_unsupported("mdxjsEsm"),
+            mdast::Node::Toml(doc) => {
+                self.events.push(Event::Html(Cow::Owned(format_frontmatter(
+                    "toml", &doc.value,
+                ))));
+            }
+            mdast::Node::Yaml(doc) => {
+                self.events.push(Event::Html(Cow::Owned(format_frontmatter(
+                    "yaml", &doc.value,
+                ))));
+            }
+            mdast::Node::MdxjsEsm(doc) => {
+                self.events.push(Event::Html(Cow::Owned(doc.value.clone())));
+            }
             mdast::Node::MdxFlowExpression(_) => self.warn_unsupported("mdxFlowExpression"),
             mdast::Node::MdxTextExpression(_) => self.warn_unsupported("mdxTextExpression"),
             mdast::Node::MdxJsxFlowElement(_) => self.warn_unsupported("mdxJsxFlowElement"),
             mdast::Node::MdxJsxTextElement(_) => self.warn_unsupported("mdxJsxTextElement"),
-            // Default: keep walking children so nested inline nodes still render.
             other => {
                 if let Some(children) = other.children() {
                     self.visit_children(children);
@@ -183,12 +192,12 @@ impl EventBuilder {
     fn handle_link(&mut self, link: &mdast::Link) {
         let tag = Tag::Link {
             link_type: LinkType::Inline,
-            dest_url: CowStr::from(link.url.clone()),
+            dest_url: Cow::Owned(link.url.clone()),
             title: link
                 .title
                 .clone()
-                .map_or(CowStr::Borrowed(""), CowStr::from),
-            id: CowStr::from(String::new()),
+                .map_or(Cow::Borrowed(""), |t| Cow::Owned(t)),
+            id: Cow::Owned(String::new()),
         };
         self.with_tag(tag, &link.children);
     }
@@ -196,17 +205,16 @@ impl EventBuilder {
     fn handle_image(&mut self, image: &mdast::Image) {
         let tag = Tag::Image {
             link_type: LinkType::Inline,
-            dest_url: CowStr::from(image.url.clone()),
+            dest_url: Cow::Owned(image.url.clone()),
             title: image
                 .title
                 .clone()
-                .map_or(CowStr::Borrowed(""), CowStr::from),
-            id: CowStr::from(String::new()),
+                .map_or(Cow::Borrowed(""), |t| Cow::Owned(t)),
+            id: Cow::Owned(String::new()),
         };
         self.events.push(Event::Start(tag.clone()));
         if !image.alt.is_empty() {
-            self.events
-                .push(Event::Text(CowStr::from(image.alt.clone())));
+            self.events.push(Event::Text(Cow::Owned(image.alt.clone())));
         }
         self.events.push(Event::End(tag.to_end()));
     }
@@ -228,9 +236,9 @@ impl EventBuilder {
     fn handle_link_reference(&mut self, link: &mdast::LinkReference) {
         let tag = Tag::Link {
             link_type: LinkType::Reference,
-            dest_url: CowStr::from(String::new()),
-            title: CowStr::Borrowed(""),
-            id: CowStr::from(link.identifier.clone()),
+            dest_url: Cow::Borrowed(""),
+            title: Cow::Borrowed(""),
+            id: Cow::Owned(link.identifier.clone()),
         };
         self.with_tag(tag, &link.children);
     }
@@ -238,14 +246,13 @@ impl EventBuilder {
     fn handle_image_reference(&mut self, image: &mdast::ImageReference) {
         let tag = Tag::Image {
             link_type: LinkType::Reference,
-            dest_url: CowStr::from(String::new()),
-            title: CowStr::Borrowed(""),
-            id: CowStr::from(image.identifier.clone()),
+            dest_url: Cow::Borrowed(""),
+            title: Cow::Borrowed(""),
+            id: Cow::Owned(image.identifier.clone()),
         };
         self.events.push(Event::Start(tag.clone()));
         if !image.alt.is_empty() {
-            self.events
-                .push(Event::Text(CowStr::from(image.alt.clone())));
+            self.events.push(Event::Text(Cow::Owned(image.alt.clone())));
         }
         self.events.push(Event::End(tag.to_end()));
     }
@@ -255,22 +262,74 @@ impl EventBuilder {
     }
 }
 
-/// Helper for constructing `CodeBlockKind` without leaking pulldown internals
-/// into the recursive builder logic.
-struct TagCodeBlockKind<'a>(pulldown_cmark::CodeBlockKind<'a>);
+fn heading_slug(children: &[mdast::Node]) -> Option<String> {
+    let mut raw = String::new();
+    collect_text(children, &mut raw);
 
-impl<'a> TagCodeBlockKind<'a> {
-    fn indented() -> Self {
-        Self(pulldown_cmark::CodeBlockKind::Indented)
+    let mut slug = String::new();
+    let mut last_dash = false;
+
+    for ch in raw.chars() {
+        if ch.is_alphanumeric() {
+            for lower in ch.to_lowercase() {
+                slug.push(lower);
+            }
+            last_dash = false;
+        } else if ch.is_whitespace() || matches!(ch, '-' | '_' | ':' | '.') {
+            if !slug.is_empty() && !last_dash {
+                slug.push('-');
+                last_dash = true;
+            }
+        }
     }
 
-    fn fenced(lang: &str) -> Self {
-        Self(pulldown_cmark::CodeBlockKind::Fenced(CowStr::from(
-            lang.to_owned(),
-        )))
+    while slug.ends_with('-') {
+        slug.pop();
     }
 
-    fn into_kind(self) -> pulldown_cmark::CodeBlockKind<'static> {
-        self.0.into_static()
+    if slug.is_empty() { None } else { Some(slug) }
+}
+
+fn collect_text(nodes: &[mdast::Node], buf: &mut String) {
+    for node in nodes {
+        match node {
+            mdast::Node::Text(text) => buf.push_str(&text.value),
+            mdast::Node::InlineCode(code) => buf.push_str(&code.value),
+            mdast::Node::Code(code) => buf.push_str(&code.value),
+            mdast::Node::Strong(_)
+            | mdast::Node::Emphasis(_)
+            | mdast::Node::Delete(_)
+            | mdast::Node::Link(_)
+            | mdast::Node::LinkReference(_)
+            | mdast::Node::Paragraph(_)
+            | mdast::Node::Heading(_)
+            | mdast::Node::Blockquote(_)
+            | mdast::Node::ListItem(_)
+            | mdast::Node::List(_)
+            | mdast::Node::MdxJsxFlowElement(_)
+            | mdast::Node::MdxJsxTextElement(_)
+            | mdast::Node::Root(_)
+            | mdast::Node::Table(_)
+            | mdast::Node::TableRow(_)
+            | mdast::Node::TableCell(_)
+            | mdast::Node::FootnoteDefinition(_)
+            | mdast::Node::Image(_)
+            | mdast::Node::ImageReference(_) => {
+                if let Some(children) = node.children() {
+                    collect_text(children, buf);
+                }
+            }
+            _ => {}
+        }
     }
+}
+
+fn format_frontmatter(kind: &str, value: &str) -> String {
+    let mut output = String::new();
+    output.push_str("<pre class=\"frontmatter\" data-kind=\"");
+    output.push_str(kind);
+    output.push_str("\">");
+    encode_text_to_string(value, &mut output);
+    output.push_str("</pre>");
+    output
 }
