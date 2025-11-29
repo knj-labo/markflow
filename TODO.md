@@ -39,21 +39,31 @@
 
 ## 📋 Backlog
 
-### Phase 2: Astro Integration (Content Layer API)
-> **Goal:** Make the engine functional as an Astro v5 Loader.
+### Phase 2: Astro + Starlight MVP (Hybrid Loader + Vite)
+> **Goal:** Ship Markflow as the MDX compiler for `withastro/docs` by combining the Content Layer loader with a pre-transform Vite plugin (Option 1 compiler path).
 
-- [ ] **Astro Loader Prototype**
-    - [ ] Implement Loader readable from `src/content/config.ts`
-    - [ ] Output data conforming to `RenderedContent` type
-- [ ] **MDX Support (Step 1: Hybrid Bridge)**
-    - [ ] Pass JSX blocks through as "raw text"
-    - [ ] Verify handover to standard Astro pipeline
-- [ ] **MDX Support (Step 2: Native Compiler)**
-    - [ ] Introduce `swc_core`
-    - [ ] Implement JSX code generation logic in Rust
-    - [ ] Detect `client:*` directives and maintain hydration
-- [ ] **Performance Measurement**
-    - [ ] Compare build times for a 1000-page site (vs. Standard Astro)
+- [ ] **Content Loader Glue**
+    - [ ] Mirror `src/content/config.ts` loader contract (glob discovery, slug generation, digest tracking)
+    - [ ] Extract and store frontmatter for Starlight navigation/hero metadata in the DataStore
+    - [ ] Keep non-Markflow entries compatible by reusing the default loader fallbacks
+- [ ] **Vite Plugin Interception**
+    - [ ] Publish `vite-plugin-markflow` with `enforce: 'pre'` to intercept `.mdx` before `@astrojs/mdx`
+    - [ ] Call the NAPI `compile()` binding and emit JSX modules (source maps optional for MVP)
+    - [ ] Verify coexistence with `@astrojs/starlight` auto-imported MDX integration
+- [ ] **Rust Compiler Option 1**
+    - [ ] YAML frontmatter extraction that emits `export const frontmatter`
+    - [ ] Code-fence-aware import hoisting (state machine + multi-line support)
+    - [ ] Markdown → JSX renderer with raw JSX passthrough to preserve components
+    - [ ] `:::directive` → `<Aside>` transclusion plus auto-import injection
+    - [ ] Heading slug generation (rehype-slug parity, including i18n) and `export const headings`
+- [ ] **Hydration + Validation Strategy**
+    - [ ] Smoke-test Tabs, FileTree, Steps, CardGrid to ensure hydration survives Option 1
+    - [ ] Document known failure modes (e.g., malformed JSX) since compile-time validation is skipped
+    - [ ] Provide fallback guidance for downgraded directive rendering if blockers appear
+- [ ] **E2E with withastro/docs**
+    - [ ] Wire repo fixture, run `npm run dev`, and load sample locales
+    - [ ] Capture build and dev-server metrics vs. `@astrojs/mdx`
+    - [ ] Log regressions and feed them back into backlog issues
 
 ### Phase 3: Universal Deployment (Nuxt & Next.js)
 > **Goal:** Abstract framework-specific differences.
@@ -71,3 +81,13 @@
 - [ ] **WASM Plugin System**: Load user-defined logic via WASM.
 - [ ] **Rust-native Syntax Highlighting**: Integrate `syntect` or `tree-sitter`.
 - [ ] **Turbopack Native Plugin**: Support Next.js official Rust plugin system.
+
+## ⏱️ Astro MVP Work Breakdown
+
+| Phase | Scope | Est. Effort |
+| :--- | :--- | :--- |
+| 1 | Environment + NAPI bridge (workspace bootstrap, napi-rs boilerplate, hello-world Vite plugin) | 3 days |
+| 2 | Core compiler pieces (frontmatter extraction, code-fence-aware hoisting, baseline Markdown-to-JSX) | 5 days |
+| 3 | Starlight-specific features (directive → Aside, slug generation, component passthrough validation) | 6 days |
+| 4 | Integration + QA (withastro/docs wiring, hydration debugging, perf measurements) | 4 days |
+| **Total** | **Prototype ready for docs site** | **≈18 person-days (3.6 weeks)** |
