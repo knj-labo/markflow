@@ -3,6 +3,7 @@
 use std::borrow::Cow;
 use std::convert::TryFrom;
 
+use html_escape::encode_text_to_string;
 use log::warn;
 use markdown::{ParseOptions, mdast, message::Message, to_mdast};
 
@@ -15,7 +16,11 @@ pub struct MarkdownRsEventIter {
 
 impl MarkdownRsEventIter {
     pub fn new(input: &str) -> Result<Self, Message> {
-        let tree = to_mdast(input, &ParseOptions::default())?;
+        let mut options = ParseOptions::gfm();
+        options.constructs.frontmatter = true;
+        options.constructs.math_flow = true;
+        options.constructs.math_text = true;
+        let tree = to_mdast(input, &options)?;
         let mut builder = EventBuilder::default();
         builder.visit(&tree);
         Ok(Self {
@@ -58,10 +63,11 @@ impl EventBuilder {
                 }
             }
             mdast::Node::Heading(heading) => {
+                let heading_id = heading_slug(&heading.children);
                 let tag = Tag::Heading {
                     level: HeadingLevel::try_from(heading.depth as usize)
                         .unwrap_or(HeadingLevel::H6),
-                    id: None,
+                    id: heading_id.map(Cow::Owned),
                     classes: Vec::new(),
                     attrs: Vec::new(),
                 };
@@ -143,9 +149,19 @@ impl EventBuilder {
             mdast::Node::LinkReference(link) => self.handle_link_reference(link),
             mdast::Node::ImageReference(image) => self.handle_image_reference(image),
             mdast::Node::Definition(_) => self.warn_unsupported("definition"),
-            mdast::Node::Toml(_) => self.warn_unsupported("toml"),
-            mdast::Node::Yaml(_) => self.warn_unsupported("yaml"),
-            mdast::Node::MdxjsEsm(_) => self.warn_unsupported("mdxjsEsm"),
+            mdast::Node::Toml(doc) => {
+                self.events.push(Event::Html(Cow::Owned(format_frontmatter(
+                    "toml", &doc.value,
+                ))));
+            }
+            mdast::Node::Yaml(doc) => {
+                self.events.push(Event::Html(Cow::Owned(format_frontmatter(
+                    "yaml", &doc.value,
+                ))));
+            }
+            mdast::Node::MdxjsEsm(doc) => {
+                self.events.push(Event::Html(Cow::Owned(doc.value.clone())));
+            }
             mdast::Node::MdxFlowExpression(_) => self.warn_unsupported("mdxFlowExpression"),
             mdast::Node::MdxTextExpression(_) => self.warn_unsupported("mdxTextExpression"),
             mdast::Node::MdxJsxFlowElement(_) => self.warn_unsupported("mdxJsxFlowElement"),
@@ -244,4 +260,76 @@ impl EventBuilder {
     fn warn_unsupported(&self, node_name: &str) {
         warn!("Skipping unsupported markdown node: {node_name}");
     }
+}
+
+fn heading_slug(children: &[mdast::Node]) -> Option<String> {
+    let mut raw = String::new();
+    collect_text(children, &mut raw);
+
+    let mut slug = String::new();
+    let mut last_dash = false;
+
+    for ch in raw.chars() {
+        if ch.is_alphanumeric() {
+            for lower in ch.to_lowercase() {
+                slug.push(lower);
+            }
+            last_dash = false;
+        } else if ch.is_whitespace() || matches!(ch, '-' | '_' | ':' | '.') {
+            if !slug.is_empty() && !last_dash {
+                slug.push('-');
+                last_dash = true;
+            }
+        }
+    }
+
+    while slug.ends_with('-') {
+        slug.pop();
+    }
+
+    if slug.is_empty() { None } else { Some(slug) }
+}
+
+fn collect_text(nodes: &[mdast::Node], buf: &mut String) {
+    for node in nodes {
+        match node {
+            mdast::Node::Text(text) => buf.push_str(&text.value),
+            mdast::Node::InlineCode(code) => buf.push_str(&code.value),
+            mdast::Node::Code(code) => buf.push_str(&code.value),
+            mdast::Node::Strong(_)
+            | mdast::Node::Emphasis(_)
+            | mdast::Node::Delete(_)
+            | mdast::Node::Link(_)
+            | mdast::Node::LinkReference(_)
+            | mdast::Node::Paragraph(_)
+            | mdast::Node::Heading(_)
+            | mdast::Node::Blockquote(_)
+            | mdast::Node::ListItem(_)
+            | mdast::Node::List(_)
+            | mdast::Node::MdxJsxFlowElement(_)
+            | mdast::Node::MdxJsxTextElement(_)
+            | mdast::Node::Root(_)
+            | mdast::Node::Table(_)
+            | mdast::Node::TableRow(_)
+            | mdast::Node::TableCell(_)
+            | mdast::Node::FootnoteDefinition(_)
+            | mdast::Node::Image(_)
+            | mdast::Node::ImageReference(_) => {
+                if let Some(children) = node.children() {
+                    collect_text(children, buf);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+fn format_frontmatter(kind: &str, value: &str) -> String {
+    let mut output = String::new();
+    output.push_str("<pre class=\"frontmatter\" data-kind=\"");
+    output.push_str(kind);
+    output.push_str("\">");
+    encode_text_to_string(value, &mut output);
+    output.push_str("</pre>");
+    output
 }
