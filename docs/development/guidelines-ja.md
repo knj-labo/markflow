@@ -1,19 +1,21 @@
 # リポジトリガイドライン
 
+_この文書は [AGENTS.md](../../AGENTS.md) のクイックスタートを補完します。コントリビュータ向けルールを更新する際は両方を同期してください。_
+
 ## プロジェクト構成とワークスペース
-Phase 1 では `crates/core`、`crates/napi`、`crates/wasm` を含む Cargo ワークスペースを前提とします。Core は markdown-rs パイプラインと PipeAdapter を持ち、バインディング側はインターフェースだけを公開します。ベンチやプロファイル結果は `benchmarks/`、大きな Markdown フィクスチャは `fixtures/markdown/`、補助スクリプトは `scripts/`（実行権を付与）に配置します。PRD やダイアグラムは `docs/` に置いて議論内容をバージョン管理します。
+Markflow は `crates/core`（Rust パーサー + ストリーミングリライタ）、`crates/napi`（Node バインディング）、`crates/wasm`（ブラウザ向けバインディング）で構成された Cargo ワークスペースです。テストは各クレート直下（`crates/core/src/**/*.rs`、`crates/napi/tests/*.test.js`）に置きます。共通リソースは `fixtures/`（Markdown サンプル）、`benchmarks/`（性能測定）、`samples/`（統合デモ）、`scripts/`（スモークツール）、`docs/`（アーキテクチャ資料）にまとめ、計画立案時は `ROADMAP.md` を唯一のロードマップとして参照してください。
 
 ## ビルド・テスト・開発コマンド
-push 前に `cargo fmt` と `cargo clippy --workspace --all-targets` を実行します。Rust エンジンは `cargo test --workspace` と `cargo bench -p markflow-core --features bench` で検証し、10 MB サンプル処理時のメモリを確認します。Node ブリッジは `pnpm install`、`pnpm run build:napi`、`node scripts/smoke-napi.mjs samples/large.md` を順に実行し、`console.time` で remark と比較します。
+コミット前に `cargo fmt --all && cargo clippy --workspace --all-targets` を必ず実行し、`cargo test --workspace` で Rust のテストスイート（`crates/core/src/lib.rs` のインラインテストを含む）を確認します。Node バインディングは `crates/napi` で `pnpm install --filter markflow` を行い、`pnpm run build` で N-API バイナリをビルド、`pnpm test` で AVA テストを実行し、`node ../../scripts/smoke-napi.mjs fixtures/markdown/hello.md` でエンドツーエンドの結果を確認します。性能証跡が必要な場合のみ `cargo bench -p markflow-core` を追加してください。
 
-## パーサーとグルーの要件
-Task 1.2 を拡張する際は、パーサー変更をイベントイテレータとして保ち AST を生成しないでください。PipeAdapter（Task 1.3）は `std::io::Write` を実装し、一時バッファを作らず `lol_html` へストリームします。割り当てホットスポットがあればコードコメントで説明します。Rewriter フック（Task 1.4）は `<img>` に `loading="lazy"` を自動付与するなど、価値を示す具体例を用意します。
+## パーサーとグルーの期待値
+コアパーサーはプル型イベントを維持し、PipeAdapter と `lol_html` リライタへそのままストリーミングする設計を守ります（AST を構築しない）。公開 API 名（`parse`、`parseWithOptions`、`parseWithStats`）を揃え、ドキュメントとバインディングの同期を崩さないでください。アダプタやリライタを変更する際は、バッファサイズや遅延読み込み属性などストリーミングの振る舞いをコメントで明示し、WASM/N-API クレートが追従できるようにします。
 
 ## コーディングスタイルと命名
-Rust 2021 のデフォルトに従い、インデントは 4 スペース、ファイル名は snake_case、型名は CamelCase とします。アダプタの実装は `*_adapter.rs`、リライタは `*_rewriter.rs` に配置します。各クレートで `#![deny(missing_docs)]` を有効にし、pull→push パイプライン内での構造体の役割を説明します。JS 側は ESM の名前付きエクスポートを優先し、ファイル名は小文字＋ハイフンに揃えます。
+ワークスペースは Rust 2024 と `rustfmt` デフォルトを採用しています。モジュール単位のファイル構成（`streaming_rewriter.rs`、`markdown_adapter.rs` など）と snake_case 識別子を徹底し、各クレートで `#![deny(missing_docs)]` を有効化してストリームパイプライン内での構造体の役割を記述します。`crates/napi` の JavaScript/TypeScript は純粋な ESM で、関数は camelCase、エクスポートクラスは PascalCase、ファイル名はケバブケースに揃えます。
 
 ## テストとベンチマーク
-ユニットテストはコード付近（`mod tests`）に置き、入力は `fixtures/` から取得します。ストリーミング／リグレッションのカバレッジには巨大スナップショットではなく Criterion ベンチを使い、ピーク RSS を `benchmarks/results.md` に記録します。Node バインディングは `crates/napi/__tests__/` 配下に AVA/Vitest の `<feature>.spec.ts` を追加します。`core::parser` では 85% 以上のカバレッジを目指し、リライトルールを追加するたびにベンチを用意してください。
+Rust モジュールではテーブル駆動テストを使い、`fixtures/markdown` の入力で HTML 断片を検証します。AVA テストは `crates/napi/tests` に `<feature>.test.js` 形式で配置し、Rust と同じシナリオを反映させます。PR を出す前に `cargo test --workspace`、`pnpm test`、そして 1 つ以上の `.md` でスモークスクリプトを実行してください。性能改善を主張する場合は `benchmarks/results.md` か PR の CLI ログに結果を記録します。
 
 ## コミットと PR ワークフロー
-Conventional Commits（例: `feat: parser events`, `perf: glue rss drop`）を使用します。全ての PR に summary、TODO.md で影響を受けたタスク、パフォーマンスエビデンス（ベンチ結果またはメモリグラフ）、`node scripts/smoke-napi.mjs` の検証手順を含めます。関連 Issue を参照し、必要に応じて CLI 出力のスクリーンショットを添付します。lint/test を省略する PR やシークレットを含む PR は拒否し、`.env.local` と `dotenvy` を利用してください。
+`feat: apply format` や `fix: clippy regressions` のような軽量な Conventional Commits を使います。PR 説明には影響したクレート、実施した手動検証（実行コマンドや使用フィクスチャ）、クローズする ROADMAP.md 項目を必ず記載してください。レンダリング結果が変わる場合のみスクリーンショットを添付し、それ以外はベンチマークやスモークテストのログを貼ります。バインディングの生成物やシークレットはコミットしないでください（`.env.local` を利用）。
