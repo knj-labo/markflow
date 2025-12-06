@@ -32,10 +32,8 @@ pub enum MarkflowError {
 }
 
 /// Returns an iterator over Markdown events backed by `markdown-rs`.
-pub fn get_event_iterator(
-    input: &str,
-) -> Result<markdown_adapter::MarkdownRsEventIter, MarkflowError> {
-    markdown_adapter::MarkdownRsEventIter::new(input)
+pub fn get_event_iterator(input: &str) -> Result<markdown_adapter::MarkdownParser, MarkflowError> {
+    markdown_adapter::MarkdownParser::new(input)
         .map_err(|err| MarkflowError::MarkdownAdapter(err.to_string()))
 }
 
@@ -52,7 +50,7 @@ pub fn parse(input: &str) -> Result<String, MarkflowError> {
 }
 
 /// Iterator alias so callers don't need to depend on the adapter module path.
-pub type MarkdownEventStream = markdown_adapter::MarkdownRsEventIter;
+pub type MarkdownEventStream = markdown_adapter::MarkdownParser;
 
 #[cfg(test)]
 mod tests {

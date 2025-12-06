@@ -1,5 +1,3 @@
-//! Adapter that exposes `markdown-rs` AST nodes as Markflow core events.
-
 use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::convert::TryFrom;
@@ -10,13 +8,13 @@ use markdown::{ParseOptions, mdast, message::Message, to_mdast};
 
 use crate::event::{Alignment, CodeBlockKind, Event, HeadingLevel, LinkType, Tag};
 
-pub struct MarkdownRsEventIter {
+pub struct MarkdownParser {
     stack: Vec<Frame>,
     pending_events: VecDeque<Event<'static>>,
-    tight_list_depth: usize,
+    tight_list_stack: Vec<usize>,
 }
 
-impl MarkdownRsEventIter {
+impl MarkdownParser {
     pub fn new(input: &str) -> Result<Self, Message> {
         let mut options = ParseOptions::gfm();
         options.constructs.frontmatter = true;
@@ -27,7 +25,7 @@ impl MarkdownRsEventIter {
         let mut iter = Self {
             stack: Vec::new(),
             pending_events: VecDeque::new(),
-            tight_list_depth: 0,
+            tight_list_stack: Vec::new(),
         };
         iter.push_node(tree);
         Ok(iter)
@@ -37,7 +35,7 @@ impl MarkdownRsEventIter {
         match node {
             mdast::Node::Root(root) => self.stack.push(Frame::transparent(root.children)),
             mdast::Node::Paragraph(paragraph) => {
-                if self.tight_list_depth > 0 {
+                if self.is_direct_child_of_tight_list() {
                     self.stack.push(Frame::transparent(paragraph.children));
                 } else {
                     self.stack
@@ -235,15 +233,26 @@ impl MarkdownRsEventIter {
     fn warn_unsupported(&self, node_name: &str) {
         warn!("Skipping unsupported markdown node: {node_name}");
     }
+
+    fn is_direct_child_of_tight_list(&self) -> bool {
+        self.tight_list_stack
+            .last()
+            .is_some_and(|depth| *depth == self.stack.len())
+    }
 }
 
-impl Iterator for MarkdownRsEventIter {
+impl Iterator for MarkdownParser {
     type Item = Event<'static>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if let Some(event) = self.pending_events.pop_front() {
                 return Some(event);
+            }
+
+            let current_depth = self.stack.len();
+            if current_depth == 0 {
+                return None;
             }
 
             let Some(frame) = self.stack.last_mut() else {
@@ -271,7 +280,7 @@ impl Iterator for MarkdownRsEventIter {
                         }
                         frame.phase = FramePhase::Children;
                         if matches!(frame.tight_state, TightState::PendingIncrement) {
-                            self.tight_list_depth += 1;
+                            self.tight_list_stack.push(current_depth);
                             frame.tight_state = TightState::Active;
                         }
                     }
@@ -281,7 +290,7 @@ impl Iterator for MarkdownRsEventIter {
                         } else {
                             frame.phase = FramePhase::End;
                             if matches!(frame.tight_state, TightState::Active) {
-                                self.tight_list_depth = self.tight_list_depth.saturating_sub(1);
+                                self.tight_list_stack.pop();
                                 frame.tight_state = TightState::None;
                             }
                         }
@@ -428,10 +437,10 @@ fn format_frontmatter(kind: &str, value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::event::{Event as MfEvent, Tag};
+    use crate::event::{Event as MfEvent, Tag, TagEnd};
 
     fn collect_events(input: &str) -> Vec<Event<'static>> {
-        MarkdownRsEventIter::new(input).unwrap().collect()
+        MarkdownParser::new(input).unwrap().collect()
     }
 
     #[test]
@@ -466,5 +475,25 @@ mod tests {
             .position(|event| matches!(event, MfEvent::Text(text) if text.as_ref() == "done"))
             .expect("text present");
         assert!(marker_index < text_index);
+    }
+
+    #[test]
+    fn tight_list_preserves_blockquote_paragraphs() {
+        let events = collect_events("* > foo");
+        let mut inside_blockquote = false;
+        let mut found_paragraph = false;
+        for event in events {
+            match event {
+                MfEvent::Start(Tag::BlockQuote) => inside_blockquote = true,
+                MfEvent::End(TagEnd::BlockQuote) => inside_blockquote = false,
+                MfEvent::Start(Tag::Paragraph) if inside_blockquote => {
+                    found_paragraph = true;
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        assert!(found_paragraph, "paragraph inside blockquote should remain");
     }
 }
