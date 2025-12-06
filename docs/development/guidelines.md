@@ -1,19 +1,21 @@
 # Repository Guidelines
 
+_This document expands on the quickstart in [AGENTS.md](../../AGENTS.md). Update both whenever contributor guidance changes._
+
 ## Project Structure & Workspace
-Phase 1 assumes a Cargo workspace with `crates/core`, `crates/napi`, and `crates/wasm`. Core owns the markdown-rs pipeline plus PipeAdapter, while bindings only expose interfaces. Place benchmarks and profiling data in `benchmarks/`, large Markdown fixtures in `fixtures/markdown/`, and helper scripts in `scripts/` (chmod +x). Keep PRDs or diagrams in `docs/` so architecture conversations stay versioned.
+Markflow is a Cargo workspace with `crates/core` (Rust parser + streaming rewriter), `crates/napi` (Node bindings), and `crates/wasm` (browser bindings). Tests live beside their crates (`crates/core/src/**/*.rs`, `crates/napi/tests/*.test.js`). Shared resources sit in `fixtures/` (Markdown samples), `benchmarks/` (perf harnesses), `samples/` (integration demos), `scripts/` (smoke tools), and `docs/` (architecture notes). Treat `ROADMAP.md` as the canonical roadmap when planning work.
 
 ## Build, Test, and Development Commands
-Use `cargo fmt` and `cargo clippy --workspace --all-targets` before pushing. Validate the Rust engine via `cargo test --workspace` and `cargo bench -p markflow-core --features bench` to watch memory when processing 10 MB samples. The Node bridge flow is `pnpm install`, `pnpm run build:napi`, then `node scripts/smoke-napi.mjs samples/large.md` to compare against remark using `console.time`.
+Run `cargo fmt --all && cargo clippy --workspace --all-targets` before committing to keep the Rust code formatted and lint-clean. Use `cargo test --workspace` for Rust suites (including the inline tests inside `crates/core/src/lib.rs`). For the Node bindings, execute `pnpm install --filter markflow` inside `crates/napi`, followed by `pnpm run build` to compile the N-API binary, `pnpm test` for AVA suites, and `node ../../scripts/smoke-napi.mjs fixtures/markdown/hello.md` for a fast end-to-end check. Add `cargo bench -p markflow-core` only when you need perf evidence for a PR.
 
 ## Parser & Glue Expectations
-When extending Task 1.2, keep parser changes as event iterators—no AST materialization. PipeAdapter (Task 1.3) must implement `std::io::Write` and stream directly into `lol_html` without temporary buffers; document any allocation hotspots in code comments. Rewriter hooks (Task 1.4) should prove value with concrete examples such as auto-injecting `loading="lazy"` on `<img>`.
+The core parser should continue to expose pull-based markdown events that stream directly into the PipeAdapter and `lol_html` rewriter—avoid materializing ASTs. Keep public APIs aligned (`parse`, `parseWithOptions`, `parseWithStats`) so docs and bindings stay synchronized. When touching adapter or rewriter modules, document any changes in streaming behavior (buffer sizes, lazy attributes, math passthrough) so WASM and N-API crates can mirror them.
 
 ## Coding Style & Naming
-Follow Rust 2021 defaults: 4-space indent, snake_case files, CamelCase types. Adapter implementations live in `*_adapter.rs`; rewriters in `*_rewriter.rs`. Enable `#![deny(missing_docs)]` per crate and describe how each struct participates in the pull→push pipeline. Prefer ESM with named exports on the JS side and keep filenames lowercase-hyphenated.
+The workspace targets Rust 2024 and the default `rustfmt` profile; prefer module-focused files (`streaming_rewriter.rs`, `markdown_adapter.rs`) and snake_case identifiers. Keep `#![deny(missing_docs)]` at the crate root and describe how each struct participates in the streaming pipeline. JavaScript/TypeScript inside `crates/napi` is pure ESM: camelCase for functions, PascalCase for exported classes, kebab-case file names.
 
 ## Testing & Benchmarks
-Unit tests sit beside code (`mod tests`) and draw inputs from `fixtures/`. For streaming/regression coverage, add Criterion benches rather than huge snapshots, and record peak RSS in `benchmarks/results.md`. Node bindings should gain AVA/Vitest specs under `crates/napi/__tests__/` named `<feature>.spec.ts`. Aim for >85 % coverage inside `core::parser` and add a benchmark for each new rewrite rule.
+Use table-driven tests in Rust modules with fixtures pulled from `fixtures/markdown`. Mirror the same scenarios in AVA tests under `crates/napi/tests`, keeping filenames `<feature>.test.js`. Before opening a PR, run `cargo test --workspace`, `pnpm test`, and the smoke script with at least one real `.md` file. When a change claims performance wins, capture benchmark output in `benchmarks/results.md` or attach the CLI log to the PR.
 
 ## Commit & PR Workflow
-Use Conventional Commits (`feat: parser events`, `perf: glue rss drop`). Every PR must include: summary, affected tasks from TODO.md, perf evidence (bench result or memory graph), and instructions for verifying `node scripts/smoke-napi.mjs`. Reference linked issues and attach screenshots for CLI output when relevant. Reject PRs that skip lint/test sections or introduce secrets; rely on `.env.local` with `dotenvy`.
+Follow lightweight Conventional Commits (e.g., `feat: apply format`, `fix: clippy regressions`). PR descriptions must list affected crates, manual verification (commands executed or fixtures used), and any ROADMAP.md items closed. Include screenshots only when rendered HTML changes; otherwise paste benchmark or smoke-test logs. Never commit generated artifacts from bindings or secrets—use `.env.local` and keep tokens out of the repo.

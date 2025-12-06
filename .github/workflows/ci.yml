@@ -30,6 +30,9 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: crates/napi/pnpm-lock.yaml
 
+      - name: Validate backlog specs
+        run: node scripts/check-backlog.mjs
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
