@@ -14,6 +14,7 @@ Goal: transition from the prototype parser to `markdown-rs` for spec compliance 
     - [x] Introduce [`markdown-rs`](https://github.com/wooorm/markdown-rs) as the default parser
     - [x] Verify basic Markdown parsing functionality with the new parser
     - [x] Define internal `Event` enum (rendering bridge still converts to `pulldown-cmark` events)
+    - [x] Stream `markdown-rs` events directly into the renderer (drop the `Vec<Event>` buffer)
 - [ ] WASM Bindings (Enhancement)
     - [ ] Expand `crates/wasm` to support streaming APIs (currently minimal wrapper)
 
