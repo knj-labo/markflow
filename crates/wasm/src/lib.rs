@@ -79,5 +79,5 @@ fn js_callback_error(err: JsValue) -> io::Error {
                 .and_then(|s| s.as_string())
         })
         .unwrap_or_else(|| "callback threw".to_string());
-    io::Error::new(io::ErrorKind::Other, message)
+    io::Error::other(message)
 }

@@ -255,9 +255,7 @@ impl Iterator for MarkdownParser {
                 return None;
             }
 
-            let Some(frame) = self.stack.last_mut() else {
-                return None;
-            };
+            let frame = self.stack.last_mut()?;
 
             match frame.kind {
                 FrameKind::Transparent => {
